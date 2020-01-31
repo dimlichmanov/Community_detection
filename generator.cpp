@@ -1,4 +1,5 @@
 #include "generator.h"
+#include "stdlib.h"
 void
 uniform_random(int *src_ids, int *dst_ids, float *weights, int _vertices_count, long _edges_count, int _omp_threads,
                bool _directed, bool _weighted) {

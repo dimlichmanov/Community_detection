@@ -3,7 +3,7 @@
 #include <string.h>
 #include <fstream>
 #include <algorithm>
-
+#include "stdlib.h"
 #include <stdio.h>
 #include <math.h>
 #include <vector>
@@ -20,7 +20,7 @@ using namespace std;
 
 int main(int argc, char **argv) {
     try {
-        int threads = omp_get_max_threads();
+        int threads = 8;//omp_get_max_threads();
         int vertices_index = atoi(argv[1]);
         int density_degree = atoi(argv[2]);
         char *graph_type = argv[3];
@@ -41,17 +41,22 @@ int main(int argc, char **argv) {
             uniform_random(src_ids, dst_ids, weights, vertices_count, edges_count, threads, true, true);
         }
 
-        for (int i = 0; i < edges_count; i++) {
+        /*for (int i = 0; i < edges_count; i++) {
             cout << src_ids[i] << "----" << dst_ids[i] << endl;
 
-        }
+        }*/
 
-        CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights);
+        CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights,1);
 
 
         a.print_CSR_format();
         a.print_adj_format();
-        a.adj_distribution(edges_count);
+        //a.adj_distribution(edges_count);
+
+
+
+        a.generate_labels(threads);
+        a.form_label_array(threads);
 
         delete[] src_ids;
         delete[] dst_ids;
