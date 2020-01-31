@@ -1,1 +1,1 @@
-# Community_detection
+# Community_detection_GPU
