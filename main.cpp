@@ -20,11 +20,13 @@ using namespace std;
 
 int main(int argc, char **argv) {
     try {
+
+
         int threads = 8;//omp_get_max_threads();
         int vertices_index = atoi(argv[1]);
         int density_degree = atoi(argv[2]);
         char *graph_type = argv[3];
-
+        double begin,end;
 
         int vertices_count =  pow(2.0, vertices_index);
         int edges_count = density_degree * vertices_count;
@@ -46,17 +48,37 @@ int main(int argc, char **argv) {
 
         }*/
 
-        CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights,1);
+        CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights, true);
 
 
-        a.print_CSR_format();
-        a.print_adj_format();
+        //a.print_CSR_format();
+        //a.print_adj_format();
         //a.adj_distribution(edges_count);
 
 
 
         a.generate_labels(threads);
+
+
+        begin = omp_get_wtime();
         a.form_label_array(threads);
+        end = omp_get_wtime();
+        //a.print_label_info(threads);
+        printf("Time for 2^%d edges is %f\n ", vertices_index + (int) log2(density_degree) ,end - begin);
+
+        /*begin = omp_get_wtime();
+        a.form_label_array(threads);
+        end = omp_get_wtime();
+        //a.print_label_info(threads);
+        printf("Time for 2^%d edges is %f\n ", vertices_index + (int) log2(density_degree) ,end - begin);
+
+        begin = omp_get_wtime();
+        a.form_label_array(threads);
+        end = omp_get_wtime();
+        //a.print_label_info(threads);
+        printf("Time for 2^%d edges is %f\n ", vertices_index + (int) log2(density_degree) ,end - begin);
+*/
+
 
         delete[] src_ids;
         delete[] dst_ids;
@@ -72,6 +94,5 @@ int main(int argc, char **argv) {
     }
 
     cout << "press any key to exit..." << endl;
-    //getchar();
     return 0;
 }

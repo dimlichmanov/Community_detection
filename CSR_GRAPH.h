@@ -17,8 +17,9 @@ public:
     ~CSR_GRAPH();
     void print_adj_format();
     void adj_distribution(int _edges);
-    void generate_labels(int threads);
-    void form_label_array(int threads);
+    void generate_labels(int _omp_threads);
+    void form_label_array(int _omp_threads);
+    void print_label_info(int _omp_threads);
 };
 
 
