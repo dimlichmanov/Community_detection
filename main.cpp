@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     try {
 
 
-        int threads = 8;//omp_get_max_threads();
+        int threads = omp_get_max_threads();
         int vertices_index = atoi(argv[1]);
         int density_degree = atoi(argv[2]);
         char *graph_type = argv[3];
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
         a.form_label_array(threads);
         end = omp_get_wtime();
         //a.print_label_info(threads);
-        printf("Time for 2^%d edges is %f\n ", vertices_index + (int) log2(density_degree) ,end - begin);
+        printf("Bandwidth for 2^%d edges is %f GB/s\n ", vertices_index + (int) log2(density_degree) , sizeof(int)*(vertices_count + 3*edges_count)/((end - begin)*(int)pow(1000,3)));
 
         /*begin = omp_get_wtime();
         a.form_label_array(threads);
@@ -92,7 +92,5 @@ int main(int argc, char **argv) {
     catch (...) {
         cout << "unknown error" << endl;
     }
-
-    cout << "press any key to exit..." << endl;
     return 0;
 }

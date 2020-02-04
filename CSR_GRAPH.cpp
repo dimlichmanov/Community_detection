@@ -32,6 +32,7 @@ CSR_GRAPH ::~CSR_GRAPH() {
 CSR_GRAPH:: CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigths,bool weighted) : vertices_count(v),
                                                                                   edges_count(e) {
     v_array = new unsigned int[vertices_count + 1];
+    v_array[vertices_count] = edges_count;
     unsigned int *v_array_copy   = new unsigned int[vertices_count + 1];
     e_array = new unsigned int[edges_count];
     weigths = new float[edges_count];     //optional
@@ -65,7 +66,7 @@ void CSR_GRAPH::adj_distribution(int _edges) {
         borders[i] = 0;
     }
 
-    v_array[vertices_count] = edges_count;
+
     for (int i = 0; i < vertices_count; i++) {
         int count  = v_array[i+1] - v_array[i];
 
@@ -84,7 +85,7 @@ void CSR_GRAPH::adj_distribution(int _edges) {
 }
 
 void CSR_GRAPH::print_adj_format(void) {
-    v_array[vertices_count] = edges_count;
+    //v_array[vertices_count] = edges_count;
 
     for (int i = 0; i < vertices_count; i++) {
         cout << i <<" vertice is connected to";
@@ -96,7 +97,6 @@ void CSR_GRAPH::print_adj_format(void) {
 };
 
 void CSR_GRAPH::form_label_array(int _omp_threads) {
-    v_array[vertices_count] = edges_count;
     dest_labels = new unsigned int[edges_count];
 #pragma omp parallel num_threads(_omp_threads)
     {
