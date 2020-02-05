@@ -1,0 +1,5 @@
+#BSUB -n 1
+#BSUB -o result.out
+#BSUB -q "normal"
+export OMP_NUM_THREADS=160
+./prog 18 32 rmat
