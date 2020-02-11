@@ -2,16 +2,19 @@
 #include <iostream>
 #include "math.h"
 #include "omp.h"
+#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 
 #include "stdio.h"
 #include "stdlib.h"
 using namespace std;
+
 
 void CSR_GRAPH::print_CSR_format(void) {
     for (int i = 0; i < vertices_count; i++) {
         cout << v_array[i] << endl;
 
     }
+
     cout << endl;
     for (int i = 0; i < edges_count; i++) {
         cout << e_array[i] << endl;
@@ -96,6 +99,50 @@ void CSR_GRAPH::print_adj_format(void) {
     }
 };
 
+
+void CSR_GRAPH::move_to_device(void) {
+
+
+    cudaMalloc((unsigned**)&dev_v_array,(size_t)vertices_count);
+    cudaMalloc((unsigned**)&dev_e_array,(size_t)edges_count);
+    if(weighted){
+        cudaMalloc((float**)&dev_weigths,(size_t)edges_count);
+    }
+    cudaMalloc((unsigned**)&dev_labels,(size_t)edges_count);
+    cudaMalloc((unsigned**)&dev_dest_labels,(size_t)edges_count);
+
+    cudaMemcpy(dev_v_array,v_array,(size_t)vertices_count,cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_e_array,e_array,(size_t)edges_count,cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_weigths,weigths,(size_t)edges_count,cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_labels,labels,(size_t)vertices_count,cudaMemcpyHostToDevice);
+}
+
+
+void CSR_GRAPH::move_to_host (void) {
+
+    cudaFree(dev_v_array);
+    cudaFree(dev_e_array);
+    if(weighted){
+        cudaFree(dev_weigths);
+    }
+
+    cudaFree(dev_labels);
+    cudaFree(dev_dest_labels);
+
+    cudaMemcpy(v_array,dev_v_array,(size_t)vertices_count,cudaMemcpyDeviceToHost);
+    cudaMemcpy(e_array,dev_e_array,(size_t)edges_count,cudaMemcpyDeviceToHost);
+    cudaMemcpy(weigths,dev_weigths,(size_t)edges_count,cudaMemcpyDeviceToHost);
+    cudaMemcpy(labels,dev_labels,(size_t)vertices_count,cudaMemcpyDeviceToHost);
+    cudaMemcpy(dest_labels,dev_dest_labels,(size_t)edges_count,cudaMemcpyDeviceToHost);
+
+
+}
+
+
+
+
+
+
 void CSR_GRAPH::form_label_array(int _omp_threads) {
     dest_labels = new unsigned int[edges_count];
 #pragma omp parallel num_threads(_omp_threads)
@@ -108,6 +155,8 @@ void CSR_GRAPH::form_label_array(int _omp_threads) {
         }
     }
 }
+
+
 
 void CSR_GRAPH::print_label_info(int _omp_threads) {
 #pragma omp parallel num_threads(_omp_threads)
