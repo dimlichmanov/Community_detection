@@ -100,43 +100,6 @@ void CSR_GRAPH::print_adj_format(void) {
 };
 
 
-void CSR_GRAPH::move_to_device(void) {
-
-
-    cudaMalloc((unsigned**)&dev_v_array,(size_t)vertices_count);
-    cudaMalloc((unsigned**)&dev_e_array,(size_t)edges_count);
-    if(weighted){
-        cudaMalloc((float**)&dev_weigths,(size_t)edges_count);
-    }
-    cudaMalloc((unsigned**)&dev_labels,(size_t)edges_count);
-    cudaMalloc((unsigned**)&dev_dest_labels,(size_t)edges_count);
-
-    cudaMemcpy(dev_v_array,v_array,(size_t)vertices_count,cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_e_array,e_array,(size_t)edges_count,cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_weigths,weigths,(size_t)edges_count,cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_labels,labels,(size_t)vertices_count,cudaMemcpyHostToDevice);
-}
-
-
-void CSR_GRAPH::move_to_host (void) {
-
-    cudaFree(dev_v_array);
-    cudaFree(dev_e_array);
-    if(weighted){
-        cudaFree(dev_weigths);
-    }
-
-    cudaFree(dev_labels);
-    cudaFree(dev_dest_labels);
-
-    cudaMemcpy(v_array,dev_v_array,(size_t)vertices_count,cudaMemcpyDeviceToHost);
-    cudaMemcpy(e_array,dev_e_array,(size_t)edges_count,cudaMemcpyDeviceToHost);
-    cudaMemcpy(weigths,dev_weigths,(size_t)edges_count,cudaMemcpyDeviceToHost);
-    cudaMemcpy(labels,dev_labels,(size_t)vertices_count,cudaMemcpyDeviceToHost);
-    cudaMemcpy(dest_labels,dev_dest_labels,(size_t)edges_count,cudaMemcpyDeviceToHost);
-
-
-}
 
 
 

@@ -1,6 +1,6 @@
 #ifndef RMAT_CSR_GRAPH_H
 #define RMAT_CSR_GRAPH_H
-
+#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 
 class CSR_GRAPH {
     bool weighted;
@@ -19,6 +19,13 @@ class CSR_GRAPH {
     float * dev_weigths;
 
 public:
+
+    unsigned int * get_dev_v_array(){ return dev_v_array; }
+    unsigned int * get_dev_e_array(){return dev_e_array;}
+    unsigned int * get_dev_labels(){ return dev_labels;}
+    unsigned int *get_dev_dest_labels(){return dev_dest_labels;}
+    float * get_dev_weigths(){return dev_weigths;}
+
     explicit CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigths,bool weighted);
     void print_CSR_format();
     ~CSR_GRAPH();

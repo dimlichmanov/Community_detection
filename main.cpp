@@ -10,6 +10,7 @@
 
 #include "CSR_GRAPH.h"
 #include "generator.h"
+#include "device_gather.h"
 
 using namespace std;
 
