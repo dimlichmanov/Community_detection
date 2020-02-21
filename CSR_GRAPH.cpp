@@ -2,7 +2,6 @@
 #include <iostream>
 #include "math.h"
 #include "omp.h"
-#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 
 #include "stdio.h"
 #include "stdlib.h"

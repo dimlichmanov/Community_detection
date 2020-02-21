@@ -1,6 +1,5 @@
 #ifndef RMAT_CSR_GRAPH_H
 #define RMAT_CSR_GRAPH_H
-#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 
 class CSR_GRAPH {
     bool weighted;

@@ -1,6 +1,7 @@
 
 
-#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
+//#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
+#include "cuda_runtime.h"
 #include "device_gather.h"
 
 
