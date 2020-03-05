@@ -2,7 +2,7 @@
 #include <iostream>
 #include "math.h"
 #include "omp.h"
-
+#include <vector>
 #include "stdio.h"
 #include "stdlib.h"
 using namespace std;
@@ -31,33 +31,44 @@ CSR_GRAPH ::~CSR_GRAPH() {
     }
 }
 
+typedef std::pair<unsigned int,float> edge;
+
+
+typedef std::pair<unsigned int,float> edge;
+
 CSR_GRAPH:: CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigths,bool weighted) : vertices_count(v),
-                                                                                  edges_count(e) {
-    v_array = new unsigned int[vertices_count + 1];
-    v_array[vertices_count] = edges_count;
-    unsigned int *v_array_copy   = new unsigned int[vertices_count + 1];
+                                                                                                   edges_count(e) {
+
+    std::vector<std::vector<edge> > graph_info(vertices_count+1);
+    dest_labels = new unsigned int[edges_count];
+    weigths = new float[edges_count];
     e_array = new unsigned int[edges_count];
-    weigths = new float[edges_count];     //optional
+    v_array = new unsigned int[vertices_count];
 
-    for (int i = 0; i < edges_count; i++) {
-        v_array[_src_ids[i]]++;
-        v_array_copy[_src_ids[i]]++;
-    }
-    unsigned int sum = v_array[0];
-    v_array[0] = 0;
-    v_array_copy[0] = 0;
-    for (int j = 1; j < vertices_count; j++) {
-        int temp = v_array[j];
-        v_array[j] = sum;
-        v_array_copy[j] = sum;
-        sum+=temp;
-    }
-    for (int k = 0; k < edges_count; k++) {
-        if(weighted) weigths[v_array_copy[_src_ids[k]]] = _weigths[k];
-        e_array[v_array_copy[_src_ids[k]]++] = _dst_ids[k];
-        
+
+    for(long long int i = 0; i < edges_count; i++)
+    {
+        int src_id = _src_ids[i];
+        int dst_id = _dst_ids[i];
+        float weight = _weigths[i];
+        graph_info[src_id].push_back(std::pair<unsigned int,float>(dst_id,weight));
     }
 
+    unsigned int current_edge = 0;
+    e_array[0] = 0;
+    for(int cur_vertex = 0; cur_vertex < vertices_count; cur_vertex++)
+    {
+        int src_id = cur_vertex;
+
+        for(int i = 0; i < graph_info[src_id].size(); i++)
+        {
+            e_array[current_edge] = graph_info[src_id][i].first;
+            weigths[current_edge] = graph_info[src_id][i].second;
+            current_edge++;
+        }
+        v_array[cur_vertex + 1] = current_edge;
+    }
+    std::cout<<"no segmentation in constructor"<<endl;
 }
 
 void CSR_GRAPH::adj_distribution(int _edges) {
@@ -100,13 +111,8 @@ void CSR_GRAPH::print_adj_format(void) {
 
 
 
-
-
-
-
-
 void CSR_GRAPH::form_label_array(int _omp_threads) {
-    dest_labels = new unsigned int[edges_count];
+
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)

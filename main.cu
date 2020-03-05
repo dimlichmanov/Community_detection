@@ -45,9 +45,11 @@ int main(int argc, char **argv) {
 
 
         if (strcmp(graph_type, "rmat") == 0) {
+
             R_MAT(src_ids, dst_ids, weights, vertices_count, edges_count, 45, 20, 20, 15, threads, true, true);
 
         } else {
+
             uniform_random(src_ids, dst_ids, weights, vertices_count, edges_count, threads, true, true);
         }
 
@@ -79,8 +81,9 @@ int main(int argc, char **argv) {
 
         dim3 block(1024,1);
         dim3 grid(vertices_count/block.x,1);
-
+        printf("starting...");
         device_gather <<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),a.get_dev_dest_labels(),a.get_dev_labels());
+        printf("terminating....");
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
         float time;
