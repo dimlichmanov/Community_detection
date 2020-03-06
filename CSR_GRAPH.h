@@ -35,6 +35,9 @@ public:
     void print_label_info(int _omp_threads);
     void move_to_device();
     void move_to_host();
+
+    unsigned long long get_vert(){return vertices_count;};
+    unsigned long long get_edges(){return edges_count;};
 };
 
 

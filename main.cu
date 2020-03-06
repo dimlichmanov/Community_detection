@@ -8,6 +8,29 @@
 #include <math.h>
 #include <vector>
 
+#define SAFE_CALL( CallInstruction ) { \
+    cudaError_t cuerr = CallInstruction; \
+    if(cuerr != cudaSuccess) { \
+         printf("CUDA error: %s at call \"" #CallInstruction "\"\n", cudaGetErrorString(cuerr)); \
+		 throw "error in CUDA API function, aborting..."; \
+    } \
+}
+
+#define SAFE_KERNEL_CALL( KernelCallInstruction ){ \
+    KernelCallInstruction; \
+    cudaError_t cuerr = cudaGetLastError(); \
+    if(cuerr != cudaSuccess) { \
+        printf("CUDA error in kernel launch: %s at kernel \"" #KernelCallInstruction "\"\n", cudaGetErrorString(cuerr)); \
+		throw "error in CUDA kernel launch, aborting..."; \
+    } \
+    cuerr = cudaDeviceSynchronize(); \
+    if(cuerr != cudaSuccess) { \
+        printf("CUDA error in kernel execution: %s at kernel \"" #KernelCallInstruction "\"\n", cudaGetErrorString(cuerr)); \
+		throw "error in CUDA kernel execution, aborting..."; \
+    } \
+}
+
+
 #include "CSR_GRAPH.h"
 #include "generator.h"
 #include "device_gather.h"
@@ -16,6 +39,7 @@
 #include "cuda_runtime.h"
 
 using namespace std;
+
 
 #ifndef uint32_t
 #define uint32_t int
@@ -38,7 +62,6 @@ int main(int argc, char **argv) {
 
         int vertices_count =  pow(2.0, vertices_index);
         int edges_count = density_degree * vertices_count;
-
         int *src_ids = new int[edges_count];
         int *dst_ids = new int[edges_count];
         float *weights = new float[edges_count];
@@ -58,7 +81,7 @@ int main(int argc, char **argv) {
 
         }*/
 
-        CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights, true);
+       CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights, true);
 
 
         //a.print_CSR_format();
@@ -82,7 +105,7 @@ int main(int argc, char **argv) {
         dim3 block(1024,1);
         dim3 grid(vertices_count/block.x,1);
         printf("starting...");
-        device_gather <<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),a.get_dev_dest_labels(),a.get_dev_labels());
+        SAFE_KERNEL_CALL((device_gather <<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),a.get_dev_dest_labels(),a.get_dev_labels(),a.get_edges(),a.get_vert())));
         printf("terminating....");
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
