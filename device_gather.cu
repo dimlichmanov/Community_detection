@@ -52,20 +52,25 @@ __global__ void device_gather(unsigned int *v_array,unsigned int *e_array,unsign
 
 void CSR_GRAPH::move_to_device(void) {
 
-    SAFE_CALL((cudaMalloc((unsigned**)&dev_v_array,(size_t)sizeof(this->dev_v_array[0])*(vertices_count+1))));
-    SAFE_CALL((cudaMalloc((unsigned**)&dev_e_array,(size_t)sizeof(this->dev_e_array[0])*edges_count)));
+    SAFE_CALL((cudaMalloc((void**)&dev_v_array,(size_t)sizeof(this->v_array[0])*(vertices_count+1))));
+
+    SAFE_CALL((cudaMalloc((void**)&dev_e_array,(size_t)sizeof(this->e_array[0])*edges_count)));
+
     if(weighted){
-        SAFE_CALL((cudaMalloc((float**)&dev_weigths,(size_t)sizeof(this->dev_e_array[0])*edges_count)));
+        SAFE_CALL((cudaMalloc((void**)&dev_weigths,(size_t)sizeof(this->e_array[0])*edges_count)));
     }
-    SAFE_CALL((cudaMalloc((unsigned**)&dev_labels,(size_t)sizeof(this->dev_v_array[0])*(vertices_count+1))));
-    SAFE_CALL((cudaMalloc((unsigned**)&dev_dest_labels,(size_t)sizeof(this->dev_e_array[0])*edges_count)));
+
+    SAFE_CALL((cudaMalloc((void**)&dev_labels,(size_t)sizeof(this->v_array[0])*(vertices_count))));
+
+    SAFE_CALL((cudaMalloc((void**)&dev_dest_labels,(size_t)sizeof(this->e_array[0])*edges_count)));
 
 
-    SAFE_CALL((cudaMemcpy(dev_dest_labels,dest_labels,(size_t)sizeof(this->dev_e_array[0])*edges_count,cudaMemcpyHostToDevice)));
-    SAFE_CALL((cudaMemcpy(dev_v_array,v_array,(size_t)(vertices_count+1)*(this->dev_v_array[0]),cudaMemcpyHostToDevice)));
-    SAFE_CALL((cudaMemcpy(dev_e_array,e_array,(size_t)sizeof(this->dev_e_array[0])*edges_count,cudaMemcpyHostToDevice)));
-    SAFE_CALL((cudaMemcpy(dev_weigths,weigths,(size_t)sizeof(this->dev_e_array[0])*edges_count,cudaMemcpyHostToDevice)));
-    SAFE_CALL((cudaMemcpy(dev_labels,labels,(size_t)sizeof(this->dev_v_array[0])*(vertices_count+1),cudaMemcpyHostToDevice)));
+    SAFE_CALL((cudaMemcpy(dev_dest_labels,dest_labels,(size_t)(sizeof(this->e_array[0])*edges_count),cudaMemcpyHostToDevice)));
+    SAFE_CALL((cudaMemcpy(dev_v_array,v_array,(size_t)((vertices_count+1)* sizeof(this->v_array[0])),cudaMemcpyHostToDevice)));
+    SAFE_CALL((cudaMemcpy(dev_e_array,e_array,(size_t)(sizeof(this->e_array[0])*edges_count),cudaMemcpyHostToDevice)));
+    SAFE_CALL((cudaMemcpy(dev_weigths,weigths,(size_t)(sizeof(this->e_array[0])*edges_count),cudaMemcpyHostToDevice)));
+    SAFE_CALL((cudaMemcpy(dev_labels,labels,(size_t)(sizeof(this->v_array[0])*(vertices_count)),cudaMemcpyHostToDevice)));
+
     std::cout<<"moved to device"<<std::endl;
 
 }
@@ -73,11 +78,11 @@ void CSR_GRAPH::move_to_device(void) {
 
 void CSR_GRAPH::move_to_host (void) {
 
-    SAFE_CALL((cudaMemcpy(v_array,dev_v_array,(size_t)(vertices_count+1)* sizeof(this->dev_v_array[0]),cudaMemcpyDeviceToHost)));
-    SAFE_CALL((cudaMemcpy(e_array,dev_e_array,(size_t)edges_count* sizeof(this->dev_e_array[0]),cudaMemcpyDeviceToHost)));
-    SAFE_CALL((cudaMemcpy(weigths,dev_weigths,(size_t)edges_count* sizeof(this->dev_e_array[0]),cudaMemcpyDeviceToHost)));
-    SAFE_CALL((cudaMemcpy(labels,dev_labels,(size_t)(vertices_count+1)* sizeof(this->dev_v_array[0]),cudaMemcpyDeviceToHost)));
-    SAFE_CALL((cudaMemcpy(dest_labels,dev_dest_labels,(size_t)edges_count* sizeof(this->dev_e_array[0]),cudaMemcpyDeviceToHost)));
+    SAFE_CALL((cudaMemcpy(v_array,dev_v_array,(size_t)(vertices_count+1)* sizeof(this->v_array[0]),cudaMemcpyDeviceToHost)));
+    SAFE_CALL((cudaMemcpy(e_array,dev_e_array,(size_t)edges_count* sizeof(this->e_array[0]),cudaMemcpyDeviceToHost)));
+    SAFE_CALL((cudaMemcpy(weigths,dev_weigths,(size_t)edges_count* sizeof(this->e_array[0]),cudaMemcpyDeviceToHost)));
+    SAFE_CALL((cudaMemcpy(labels,dev_labels,(size_t)(vertices_count)* sizeof(this->v_array[0]),cudaMemcpyDeviceToHost)));
+    SAFE_CALL((cudaMemcpy(dest_labels,dev_dest_labels,(size_t)edges_count* sizeof(this->e_array[0]),cudaMemcpyDeviceToHost)));
 
     cudaFree(dev_v_array);
     cudaFree(dev_e_array);

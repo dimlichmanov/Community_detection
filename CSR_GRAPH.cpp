@@ -36,8 +36,8 @@ typedef std::pair<unsigned int,float> edge;
 
 typedef std::pair<unsigned int,float> edge;
 
-CSR_GRAPH:: CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigths,bool weighted) : vertices_count(v),
-                                                                                                   edges_count(e) {
+CSR_GRAPH:: CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigths,bool w) : vertices_count(v),
+                                                                                                   edges_count(e),weighted(w) {
 
 
     std::vector<std::vector<edge> > graph_info(vertices_count+1);
@@ -147,7 +147,7 @@ void CSR_GRAPH::print_label_info(int _omp_threads) {
 
 void CSR_GRAPH::generate_labels(int _omp_threads) {
     unsigned int seed;
-    labels = new unsigned int[vertices_count+1];
+    labels = new unsigned int[vertices_count];
 #pragma omp parallel num_threads(_omp_threads) private(seed)
     {
         seed = int(time(NULL)) * omp_get_thread_num();

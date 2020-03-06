@@ -76,15 +76,15 @@ int main(int argc, char **argv) {
             uniform_random(src_ids, dst_ids, weights, vertices_count, edges_count, threads, true, true);
         }
 
-        /*for (int i = 0; i < edges_count; i++) {
+        for (int i = 0; i < edges_count; i++) {
             cout << src_ids[i] << "----" << dst_ids[i] << endl;
 
-        }*/
+        }
 
        CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights, true);
 
 
-        //a.print_CSR_format();
+        a.print_CSR_format();
         //a.print_adj_format();
         //a.adj_distribution(edges_count);
 
@@ -97,13 +97,18 @@ int main(int argc, char **argv) {
         //a.form_label_array(threads);
         //end = omp_get_wtime();
 
-        a.move_to_device();
 
+
+        a.move_to_device();
 
         cudaEventRecord(start);
 
-        dim3 block(1024,1);
-        dim3 grid(vertices_count/block.x,1);
+
+        //dim3 block(1024,1);
+        //dim3 grid(vertices_count/block.x,1);
+        dim3 block(16,1);
+        dim3 grid(1,1);
+
         printf("starting...");
         SAFE_KERNEL_CALL((device_gather <<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),a.get_dev_dest_labels(),a.get_dev_labels(),a.get_edges(),a.get_vert())));
         printf("terminating....");
@@ -113,8 +118,7 @@ int main(int argc, char **argv) {
         cudaEventElapsedTime(&time,start,stop);
         time*=1000;
         a.move_to_host();
-        //a.print_label_info(threads);
-        printf("Bandwidth for 2^%d edges is %f GB/s\n ", vertices_index + (int) log2((double)density_degree) , sizeof(int)*(vertices_count + 3*edges_count)/(time*(int)pow(1000,3)));
+        printf("Bandwidth for 2^%d edges is %f GB/s\n ", vertices_index + (int) log2((double)density_degree) , sizeof(unsigned long long)*(vertices_count + 3*edges_count)/(time*(int)pow(1000,3)));
 
         /*begin = omp_get_wtime();
         a.form_label_array(threads);
@@ -129,7 +133,7 @@ int main(int argc, char **argv) {
         printf("Time for 2^%d edges is %f\n ", vertices_index + (int) log2(density_degree) ,end - begin);
 */
 
-
+        a.print_label_info(threads);
         delete[] src_ids;
         delete[] dst_ids;
         delete[] weights;
