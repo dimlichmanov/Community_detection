@@ -116,9 +116,9 @@ int main(int argc, char **argv) {
         cudaEventSynchronize(stop);
         float time;
         cudaEventElapsedTime(&time,start,stop);
-        time*=1000;
+        time*=1000000;
         a.move_to_host();
-        printf("Bandwidth for 2^%d edges is %f GB/s\n ", vertices_index + (int) log2((double)density_degree) , sizeof(unsigned long long)*(2*vertices_count + 2*edges_count)/(time));
+        printf("Bandwidth for 2^%d edges is %f GB/s\n ", vertices_index + (int) log2((double)density_degree) , sizeof(unsigned int)*(2*vertices_count + 2*edges_count)/(time));
 
         /*begin = omp_get_wtime();
         a.form_label_array(threads);
