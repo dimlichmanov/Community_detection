@@ -37,6 +37,8 @@
 
 //#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 #include "cuda_runtime.h"
+//#include "/usr/local/cuda-10.1/include/cuda_profiler_api.h"
+#include "cuda_profiler_api.h"
 
 using namespace std;
 
@@ -101,7 +103,7 @@ int main(int argc, char **argv) {
 
         a.move_to_device();
 
-        cudaEventRecord(start);
+        SAFE_CALL(cudaEventRecord(start));
 
 
         dim3 block(1024,1);
@@ -112,13 +114,14 @@ int main(int argc, char **argv) {
         printf("starting...");
         SAFE_KERNEL_CALL((device_gather <<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),a.get_dev_dest_labels(),a.get_dev_labels(),a.get_edges(),a.get_vert())));
         printf("terminating....");
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
+        SAFE_CALL(cudaEventRecord(stop));
+        SAFE_CALL(cudaEventSynchronize(stop));
         float time;
-        cudaEventElapsedTime(&time,start,stop);
+        SAFE_CALL(cudaEventElapsedTime(&time,start,stop));
         time*=1000000;
         a.move_to_host();
-        printf("Bandwidth for 2^%d edges is %f GB/s\n ", vertices_index + (int) log2((double)density_degree) , sizeof(unsigned int)*(2*vertices_count + 2*edges_count)/(time));
+        printf("Bandwidth for 2^%d vertices and 2^%d edges is %f GB/s\n ", vertices_index,vertices_index + (int) log2((double)density_degree) , sizeof(unsigned int)*(2*vertices_count + 2*edges_count)/(time));
+
 
         /*begin = omp_get_wtime();
         a.form_label_array(threads);
@@ -137,6 +140,7 @@ int main(int argc, char **argv) {
         delete[] src_ids;
         delete[] dst_ids;
         delete[] weights;
+
     }
     catch (const char *error) {
         cout << error << endl;
@@ -146,5 +150,7 @@ int main(int argc, char **argv) {
     catch (...) {
         cout << "unknown error" << endl;
     }
+
+    SAFE_CALL(cudaProfilerStop());
     return 0;
 }

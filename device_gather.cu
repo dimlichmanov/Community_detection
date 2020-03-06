@@ -34,17 +34,17 @@
 __global__ void device_gather(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels,
                               unsigned long  long edges, unsigned long long vertices) {
 
-    unsigned int i = threadIdx.x + blockIdx.x*blockDim.x;
+    unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
 
-    assert(i < vertices+1);
+    if (i < vertices) {
 
-    int v_begin = v_array[i];
-    int v_end = v_array[i+1];
+        int v_begin = v_array[i];
+        int v_end = v_array[i + 1];
 
 
-    for (int j = v_begin; j < v_end; ++j) {
-        assert(e_array[j] < edges);
-        dest_labels[j] = labels[e_array[j]];
+        for (int j = v_begin; j < v_end; ++j) {
+            dest_labels[j] = labels[e_array[j]];
+        }
     }
 }
 
@@ -84,13 +84,13 @@ void CSR_GRAPH::move_to_host (void) {
     SAFE_CALL((cudaMemcpy(labels,dev_labels,(size_t)(vertices_count)* sizeof(this->v_array[0]),cudaMemcpyDeviceToHost)));
     SAFE_CALL((cudaMemcpy(dest_labels,dev_dest_labels,(size_t)edges_count* sizeof(this->e_array[0]),cudaMemcpyDeviceToHost)));
 
-    cudaFree(dev_v_array);
-    cudaFree(dev_e_array);
+    SAFE_CALL(cudaFree(dev_v_array));
+    SAFE_CALL(cudaFree(dev_e_array));
     if(weighted){
-        cudaFree(dev_weigths);
+        SAFE_CALL(cudaFree(dev_weigths));
     }
-    cudaFree(dev_labels);
-    cudaFree(dev_dest_labels);
+    SAFE_CALL(cudaFree(dev_labels));
+    SAFE_CALL(cudaFree(dev_dest_labels));
     std::cout<<"moved back"<<std::endl;
 
 }
