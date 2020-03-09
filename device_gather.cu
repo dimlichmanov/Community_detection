@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <assert.h>
+#define WARP_SIZE 32
 
 #define SAFE_CALL( CallInstruction ) { \
     cudaError_t cuerr = CallInstruction; \
@@ -34,16 +35,18 @@
 __global__ void device_gather(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels,
                               unsigned long  long edges, unsigned long long vertices) {
 
-    unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned long int i = threadIdx.x + blockIdx.x * blockDim.x;
 
-    if (i < vertices) {
+    if (i < vertices*WARP_SIZE) {
 
-        int v_begin = v_array[i];
-        int v_end = v_array[i + 1];
-
-
-        for (int j = v_begin; j < v_end; ++j) {
-            dest_labels[j] = labels[e_array[j]];
+        unsigned long long warp_num = i / 32 ;
+        short warp_pos = i % 32;
+        unsigned long long int v_begin = v_array[warp_num];
+        unsigned long long int v_end = v_array[warp_num + 1];
+        unsigned long long position = v_begin + warp_pos;
+        while(position < v_end){
+            dest_labels[position] = labels[e_array[position]];
+            position+=WARP_SIZE;
         }
     }
 }

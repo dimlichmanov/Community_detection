@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
 
 
         dim3 block(1024,1);
-        dim3 grid(vertices_count/block.x,1);
+        dim3 grid(vertices_count*32/block.x,1);
         //dim3 block(16,1);
         //dim3 grid(1,1);
 
