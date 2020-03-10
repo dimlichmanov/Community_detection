@@ -96,7 +96,9 @@ int main(int argc, char **argv) {
 
 
         //begin = omp_get_wtime();
+
         //a.form_label_array(threads);
+
         //end = omp_get_wtime();
 
 
@@ -120,6 +122,11 @@ int main(int argc, char **argv) {
         SAFE_CALL(cudaEventElapsedTime(&time,start,stop));
         time*=1000000;
         a.move_to_host();
+
+        //if (a.check() == 0){
+        //    printf("CORRECT");
+        //}
+
         printf("Bandwidth for 2^%d vertices and 2^%d edges is %f GB/s\n ", vertices_index,vertices_index + (int) log2((double)density_degree) , sizeof(unsigned int)*(2*vertices_count + 2*edges_count)/(time));
 
 

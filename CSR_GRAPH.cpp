@@ -28,6 +28,7 @@ CSR_GRAPH ::~CSR_GRAPH() {
         delete[] weigths;
         delete[] labels;
         delete [] dest_labels;
+        //delete []test_dest_labels;
     }
 }
 
@@ -114,13 +115,13 @@ void CSR_GRAPH::print_adj_format(void) {
 
 
 void CSR_GRAPH::form_label_array(int _omp_threads) {
-
+    test_dest_labels = new unsigned int[edges_count];
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)
         for (int i = 0; i < vertices_count; ++i) {
             for (int j = v_array[i]; j <v_array[i+1] ; ++j) {
-                dest_labels[j] = labels[e_array[j]];
+                test_dest_labels[j] = labels[e_array[j]];
             }
         }
     }
@@ -156,4 +157,14 @@ void CSR_GRAPH::generate_labels(int _omp_threads) {
             labels[i] = (unsigned int) rand_r(&seed)%(500);
         }
     }
+}
+
+long int CSR_GRAPH::check(void) {
+    for(long unsigned int j=0;j<edges_count;j++){
+        if(test_dest_labels[j]!=dest_labels[j]){
+            printf("ERROR IN %ld position",j);
+            return -1;
+        }
+    }
+    return 0;
 }

@@ -53,6 +53,9 @@ __global__ void device_gather(unsigned int *v_array,unsigned int *e_array,unsign
 
 
 
+
+
+
 void CSR_GRAPH::move_to_device(void) {
 
     SAFE_CALL((cudaMalloc((void**)&dev_v_array,(size_t)sizeof(this->v_array[0])*(vertices_count+1))));
