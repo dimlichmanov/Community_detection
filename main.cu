@@ -4,6 +4,7 @@
 #include <fstream>
 #include <algorithm>
 #include "stdlib.h"
+#include "CSR_GRAPH.h"
 #include <stdio.h>
 #include <math.h>
 #include <vector>
@@ -55,17 +56,16 @@ int main(int argc, char **argv) {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
 
-
         int threads = omp_get_max_threads();
         int vertices_index = atoi(argv[1]);
         int density_degree = atoi(argv[2]);
         char *graph_type = argv[3];
         //double begin,end;
 
-        int vertices_count =  pow(2.0, vertices_index);
-        int edges_count = density_degree * vertices_count;
-        int *src_ids = new int[edges_count];
-        int *dst_ids = new int[edges_count];
+        unsigned int vertices_count =  pow(2.0, vertices_index);
+        unsigned int edges_count = density_degree * vertices_count;
+        unsigned int *src_ids = new unsigned int[edges_count];
+        unsigned int *dst_ids = new unsigned int[edges_count];
         float *weights = new float[edges_count];
 
 
@@ -91,19 +91,17 @@ int main(int argc, char **argv) {
         //a.adj_distribution(edges_count);
 
 
+        unsigned int* labels = new unsigned int[vertices_count];
+        unsigned int* dest_labels = new unsigned int[edges_count];
+        unsigned int* dev_labels;
+        unsigned int* dev_dest_labels;
+        SAFE_CALL((cudaMalloc((void**)&dev_labels,(size_t)(sizeof(unsigned int))*(vertices_count))));
+        SAFE_CALL((cudaMalloc((void**)&dev_dest_labels,(size_t)(sizeof(unsigned int))*edges_count)));
 
-        a.generate_labels(threads);
-
-
-        //begin = omp_get_wtime();
-
-        //a.form_label_array(threads);
-
-        //end = omp_get_wtime();
-
+        generate_labels(threads,vertices_count,labels);
 
 
-        a.move_to_device();
+        a.move_to_device(dest_labels, labels, dev_dest_labels ,dev_labels);
 
         SAFE_CALL(cudaEventRecord(start));
 
@@ -113,15 +111,18 @@ int main(int argc, char **argv) {
         //dim3 block(16,1);
         //dim3 grid(1,1);
 
+
         printf("starting...");
-        SAFE_KERNEL_CALL((device_gather <<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),a.get_dev_dest_labels(),a.get_dev_labels(),a.get_edges(),a.get_vert())));
+        SAFE_KERNEL_CALL((gather_warp_per_vertex<<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),dev_dest_labels,dev_labels,edges_count,vertices_count)));
         printf("terminating....");
         SAFE_CALL(cudaEventRecord(stop));
         SAFE_CALL(cudaEventSynchronize(stop));
         float time;
         SAFE_CALL(cudaEventElapsedTime(&time,start,stop));
         time*=1000000;
-        a.move_to_host();
+        a.move_to_host(dest_labels, labels, dev_dest_labels ,dev_labels);
+        SAFE_CALL(cudaFree(dev_labels));
+        SAFE_CALL(cudaFree(dev_dest_labels));
 
         //if (a.check() == 0){
         //    printf("CORRECT");

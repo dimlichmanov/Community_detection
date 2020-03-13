@@ -13,7 +13,6 @@ void CSR_GRAPH::print_CSR_format(void) {
         cout << v_array[i] << endl;
 
     }
-
     cout << endl;
     for (int i = 0; i < edges_count; i++) {
         cout << e_array[i] << endl;
@@ -25,9 +24,9 @@ CSR_GRAPH ::~CSR_GRAPH() {
     {
         delete[] v_array;
         delete[] e_array;
-        delete[] weigths;
-        delete[] labels;
-        delete [] dest_labels;
+        delete[] weights;
+        //delete[] labels;
+        //delete [] dest_labels;
         //delete []test_dest_labels;
     }
 }
@@ -35,19 +34,17 @@ CSR_GRAPH ::~CSR_GRAPH() {
 typedef std::pair<unsigned int,float> edge;
 
 
-typedef std::pair<unsigned int,float> edge;
-
-CSR_GRAPH:: CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigths,bool w) : vertices_count(v),
+CSR_GRAPH:: CSR_GRAPH(unsigned int v, unsigned int e, unsigned int *_src_ids, unsigned int *_dst_ids, float *_weigths,bool w) : vertices_count(v),
                                                                                                    edges_count(e),weighted(w) {
 
 
     std::vector<std::vector<edge> > graph_info(vertices_count+1);
 
-    dest_labels = new unsigned int[edges_count];
-    weigths = new float[edges_count];
+    //dest_labels = new unsigned int[edges_count];
+    //weigths = new float[edges_count];
+
     e_array = new unsigned int[edges_count];
     v_array = new unsigned int[vertices_count+1];
-
 
     for(long long int i = 0; i < edges_count; i++)
     {
@@ -66,7 +63,7 @@ CSR_GRAPH:: CSR_GRAPH(int v, int e, int *_src_ids, int *_dst_ids, float *_weigth
         for(int i = 0; i < graph_info[src_id].size(); i++)
         {
             e_array[current_edge] = graph_info[src_id][i].first;
-            weigths[current_edge] = graph_info[src_id][i].second;
+            weights[current_edge] = graph_info[src_id][i].second;
             current_edge++;
         }
         v_array[cur_vertex + 1] = current_edge;
@@ -114,14 +111,15 @@ void CSR_GRAPH::print_adj_format(void) {
 
 
 
-void CSR_GRAPH::form_label_array(int _omp_threads) {
-    test_dest_labels = new unsigned int[edges_count];
+void gather_thread_per_vertex(int _omp_threads, unsigned int edges_count, unsigned int vertices_count, unsigned int *dest_labels,
+                              const unsigned int* v_array, const unsigned int *e_array, const unsigned int *labels) {
+    dest_labels = new unsigned int[edges_count];
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)
         for (int i = 0; i < vertices_count; ++i) {
             for (int j = v_array[i]; j <v_array[i+1] ; ++j) {
-                test_dest_labels[j] = labels[e_array[j]];
+                dest_labels[j] = labels[e_array[j]];
             }
         }
     }
@@ -129,7 +127,7 @@ void CSR_GRAPH::form_label_array(int _omp_threads) {
 
 
 
-void CSR_GRAPH::print_label_info(int _omp_threads) {
+void print_label_info(int _omp_threads,const int *labels, const int *dest_labels, unsigned int vertices_count, unsigned int edges_count) {
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)
@@ -146,9 +144,9 @@ void CSR_GRAPH::print_label_info(int _omp_threads) {
 }
 
 
-void CSR_GRAPH::generate_labels(int _omp_threads) {
+void generate_labels(int _omp_threads, unsigned int vertices_count, unsigned int *labels) {
     unsigned int seed;
-    labels = new unsigned int[vertices_count];
+    //labels = new unsigned int[vertices_count];
 #pragma omp parallel num_threads(_omp_threads) private(seed)
     {
         seed = int(time(NULL)) * omp_get_thread_num();
@@ -159,7 +157,7 @@ void CSR_GRAPH::generate_labels(int _omp_threads) {
     }
 }
 
-long int CSR_GRAPH::check(void) {
+long unsigned int check(unsigned int edges_count, unsigned int*test_dest_labels, unsigned int * dest_labels ) {
     for(long unsigned int j=0;j<edges_count;j++){
         if(test_dest_labels[j]!=dest_labels[j]){
             printf("ERROR IN %ld position",j);

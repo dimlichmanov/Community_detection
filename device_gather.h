@@ -15,5 +15,5 @@
 
 
 
-__global__ void device_gather(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels, unsigned long long v,
+__global__ void gather_warp_per_vertex(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels, unsigned long long v,
                               unsigned long long t) ;
