@@ -29,12 +29,16 @@ public:
     void move_to_host(unsigned int* dest_labels, unsigned int* labels, unsigned int* dev_dest_labels ,unsigned int* dev_labels);
 };
 
+void
+form_label_array(int _omp_threads, unsigned int vertices_count, unsigned int edges_count, unsigned int *dest_labels,
+                 unsigned int *v_array, unsigned int *labels, unsigned int *e_array);
+
 void gather_thread_per_vertex(int _omp_threads, unsigned int edges_count, unsigned int vertices_count, unsigned int *dest_labels,
                               const unsigned int* v_array, const unsigned int *e_array, const unsigned int *labels);
 void print_label_info(int _omp_threads,const int *labels, const int *dest_labels, unsigned int vertices_count, unsigned int edges_count);
 
 void generate_labels(int _omp_threads, unsigned int vertices_count, unsigned int *labels);
 
-long unsigned int check(unsigned int edges_count, unsigned int*test_dest_labels, unsigned int * dest_labels );
+int check(unsigned int edges_count, unsigned int*test_dest_labels, unsigned int * dest_labels );
 
 #endif //RMAT_CSR_GRAPH_H
