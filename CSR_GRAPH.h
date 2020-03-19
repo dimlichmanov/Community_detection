@@ -1,6 +1,8 @@
 #ifndef RMAT_CSR_GRAPH_H
 #define RMAT_CSR_GRAPH_H
-
+#include "string"
+#include "fstream"
+using namespace std;
 class CSR_GRAPH {
     bool weighted;
     unsigned int *v_array;
@@ -27,6 +29,7 @@ public:
 
     void move_to_device(unsigned int* dest_labels, unsigned int* labels, unsigned int* dev_dest_labels ,unsigned int* dev_labels);
     void move_to_host(unsigned int* dest_labels, unsigned int* labels, unsigned int* dev_dest_labels ,unsigned int* dev_labels);
+    void save_to_graphviz_file(string _file_name, unsigned int * k);
 };
 
 void
@@ -40,5 +43,8 @@ void print_label_info(int _omp_threads,const int *labels, const int *dest_labels
 void generate_labels(int _omp_threads, unsigned int vertices_count, unsigned int *labels);
 
 int check(unsigned int edges_count, unsigned int*test_dest_labels, unsigned int * dest_labels );
+
+int label_prop();
+
 
 #endif //RMAT_CSR_GRAPH_H

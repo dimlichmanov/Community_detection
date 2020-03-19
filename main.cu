@@ -7,7 +7,10 @@
 #include "CSR_GRAPH.h"
 #include <stdio.h>
 #include <math.h>
+#include <sstream>
+#include <string>
 #include <vector>
+#include "lp.h"
 
 #define SAFE_CALL( CallInstruction ) { \
     cudaError_t cuerr = CallInstruction; \
@@ -32,6 +35,54 @@
 }
 
 
+void input(char* filename,bool directed, unsigned int *&src_ids, unsigned int *&dst_ids,unsigned int &vertices_count,
+           unsigned int &edges_count){
+    unsigned int max_vertice = 0;
+
+    std::ifstream infile(filename);
+    std::string line;
+    unsigned int i = 0;
+
+    while (std::getline(infile, line))
+    {
+        std::istringstream iss(line);
+        int a, b;
+        if (!(iss >> a >> b))
+        {
+            break;
+        } else {
+            if(max(a,b) > max_vertice){
+                max_vertice = (unsigned)max(a,b);
+            }
+        }
+        i++;
+    }
+    edges_count = i;
+    vertices_count = max_vertice;
+    src_ids = new unsigned int[edges_count];
+    dst_ids = new unsigned int[edges_count];
+
+    std::ifstream infile1(filename);
+    i = 0;
+    while (std::getline(infile1, line))
+    {
+        std::istringstream iss(line);
+        unsigned  int a, b;
+        if (!(iss >> a >> b))
+        {
+            break;
+        } else {
+            src_ids[i] = a;
+            dst_ids[i] = b;
+            if (!directed) {
+                src_ids[i + 1] = b;
+                dst_ids[i + 1] = a;
+            }
+        }
+        i++;
+    }
+}
+
 #include "CSR_GRAPH.h"
 #include "generator.h"
 #include "device_gather.h"
@@ -51,7 +102,6 @@ using namespace std;
 
 int main(int argc, char **argv) {
     try {
-
         cudaEvent_t start,stop;
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
@@ -59,8 +109,11 @@ int main(int argc, char **argv) {
         int vertices_index;
         int density_degree;
         bool check_flag = false;
+        bool test_flag = false;
         char *graph_type;
-
+        bool lp_flag = false;
+        bool gather_flag = false;
+        char* test_file = NULL;
         for (int i = 1; i < argc; i++)
         {
             string option(argv[i]);
@@ -88,82 +141,113 @@ int main(int argc, char **argv) {
             {
                 graph_type = argv[++i];
             }
+            if ((option.compare("-testing") == 0))
+            {
+                test_file = argv[++i];
+                test_flag = true;
+                cout<<"FLAG FOUND"<<endl;
+            }
+            if ((option.compare("-lp")) ==0)
+            {
+                lp_flag = true;
+            }
+            if((option.compare("-gather")) == 0 ){
+                gather_flag = true;
+            }
+
         }
 
         unsigned int vertices_count =  pow(2.0, vertices_index);
         unsigned int edges_count = density_degree * vertices_count;
-        unsigned int *src_ids = new unsigned int[edges_count];
-        unsigned int *dst_ids = new unsigned int[edges_count];
+        unsigned int *src_ids = NULL;
+        unsigned int *dst_ids = NULL;
         float *weights = new float[edges_count];
 
+        if(!test_flag) {
+            src_ids = new unsigned int[edges_count];
+            dst_ids = new unsigned int[edges_count];
+            cout<<"test_flag"<<endl;
+            if (strcmp(graph_type, "rmat") == 0) {
+                R_MAT(src_ids, dst_ids, weights, vertices_count, edges_count, 45, 20, 20, 15, threads, true, true);
 
-        if (strcmp(graph_type, "rmat") == 0) {
-
-            R_MAT(src_ids, dst_ids, weights, vertices_count, edges_count, 45, 20, 20, 15, threads, true, true);
-
+            } else {
+                cout<<"UR_GEN"<<endl;
+                uniform_random(src_ids, dst_ids, weights, vertices_count, edges_count, threads, true, true);
+                cout<<"Generated_UR"<<endl;
+            }
         } else {
-
-            uniform_random(src_ids, dst_ids, weights, vertices_count, edges_count, threads, true, true);
+            cout<<test_flag<<endl;
+            cout<<"file_init"<<endl;
+            input(test_file,false,src_ids,dst_ids,vertices_count,edges_count);
+            vertices_count++;
+            cout<<"vertices:"<<vertices_count<<endl;
+            cout<<"edges: "<<edges_count <<endl;
         }
 
-        //for (int i = 0; i < edges_count; i++) {
-        //    cout << src_ids[i] << "----" << dst_ids[i] << endl;
-        //
-        //}
 
+        for (int i = 0; i < edges_count; i++) {
+          cout << src_ids[i] << "----" << dst_ids[i] << endl;
+        }
+
+        cout<<endl;
         CSR_GRAPH a(vertices_count,edges_count,src_ids,dst_ids,weights, true);
+        a.save_to_graphviz_file("graph_pred",NULL);
+        a.print_CSR_format();
 
         unsigned int* labels = new unsigned int[vertices_count];
         unsigned int* dest_labels = new unsigned int[edges_count];
         unsigned int* dev_labels;
         unsigned int* dev_dest_labels;
 
+        if( gather_flag) {
 
-        SAFE_CALL((cudaMalloc((void**)&dev_labels,(size_t)(sizeof(unsigned int))*(vertices_count))));
-        SAFE_CALL((cudaMalloc((void**)&dev_dest_labels,(size_t)(sizeof(unsigned int))*edges_count)));
+            SAFE_CALL((cudaMalloc((void**)&dev_labels,(size_t)(sizeof(unsigned int))*(vertices_count))));
+            SAFE_CALL((cudaMalloc((void**)&dev_dest_labels,(size_t)(sizeof(unsigned int))*edges_count)));
+            a.move_to_device(dest_labels, labels, dev_dest_labels ,dev_labels);
 
-        generate_labels(threads,vertices_count,labels);
+            SAFE_CALL(cudaEventRecord(start));
+            dim3 block(1024, 1);
+            dim3 grid(vertices_count * 32 / block.x, 1);
+            //dim3 block(16,1);
+            //dim3 grid(1,1);
 
-        a.move_to_device(dest_labels, labels, dev_dest_labels ,dev_labels);
+            printf("starting...");
+            SAFE_KERNEL_CALL((gather_warp_per_vertex << < grid, block >> >
+                                                                (a.get_dev_v_array(), a.get_dev_e_array(), dev_dest_labels, dev_labels, edges_count, vertices_count)));
+            printf("terminating....");
+            SAFE_CALL(cudaEventRecord(stop));
+            SAFE_CALL(cudaEventSynchronize(stop));
+            float time;
+            SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
+            time *= 1000000;
+            a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
+            SAFE_CALL(cudaFree(dev_labels));
+            SAFE_CALL(cudaFree(dev_dest_labels));
 
-        SAFE_CALL(cudaEventRecord(start));
-
-
-        dim3 block(1024,1);
-        dim3 grid(vertices_count*32/block.x,1);
-        //dim3 block(16,1);
-        //dim3 grid(1,1);
-
-        printf("starting...");
-        SAFE_KERNEL_CALL((gather_warp_per_vertex<<<grid,block>>> (a.get_dev_v_array(),a.get_dev_e_array(),dev_dest_labels,dev_labels,edges_count,vertices_count)));
-        printf("terminating....");
-        SAFE_CALL(cudaEventRecord(stop));
-        SAFE_CALL(cudaEventSynchronize(stop));
-        float time;
-        SAFE_CALL(cudaEventElapsedTime(&time,start,stop));
-        time*=1000000;
-        a.move_to_host(dest_labels, labels, dev_dest_labels ,dev_labels);
-        SAFE_CALL(cudaFree(dev_labels));
-        SAFE_CALL(cudaFree(dev_dest_labels));
-
-        if (check_flag){
-            unsigned int *test_dest_labels = new unsigned int [edges_count];
-            form_label_array(threads, vertices_count,edges_count,test_dest_labels,a.get_dev_v_array(),labels,a.get_e_array());
-            int flag = check(edges_count,dest_labels,test_dest_labels);
-            if(flag == 0) {
-                printf("CORRECT");
+            if (check_flag) {
+                unsigned int *test_dest_labels = new unsigned int[edges_count];
+                form_label_array(threads, vertices_count, edges_count, test_dest_labels, a.get_dev_v_array(), labels,
+                                 a.get_e_array());
+                int flag = check(edges_count, dest_labels, test_dest_labels);
+                if (flag == 0) {
+                    printf("CORRECT");
+                }
+                delete[] test_dest_labels;
             }
-            delete[] test_dest_labels;
+
+
+            printf("GATHER Bandwidth for 2^%d vertices and 2^%d edges is %f GB/s\n ", vertices_index,
+                   vertices_index + (int) log2((double) density_degree),
+                   sizeof(unsigned int) * (2 * vertices_count + 2 * edges_count) / (time));
         }
-
-        printf("Bandwidth for 2^%d vertices and 2^%d edges is %f GB/s\n ", vertices_index,vertices_index + (int) log2((double)density_degree) , sizeof(unsigned int)*(2*vertices_count + 2*edges_count)/(time));
-
-
-        //delete[] labels;
+        //cout<<"2"<<endl;
+        if(lp_flag){
+            lp(vertices_count,a.get_e_array(),a.get_v_array(),labels);
+            a.save_to_graphviz_file("graph_res",labels);
+        }
         delete[] src_ids;
         delete[] dst_ids;
         delete[] weights;
-        //delete[] dest_labels;
 
     }
     catch (const char *error) {

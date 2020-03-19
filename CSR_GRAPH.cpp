@@ -5,6 +5,8 @@
 #include <vector>
 #include "stdio.h"
 #include "stdlib.h"
+#include "string"
+#include <fstream>
 
 using namespace std;
 
@@ -64,6 +66,7 @@ CSR_GRAPH::CSR_GRAPH(unsigned int v, unsigned int e, unsigned int *_src_ids, uns
         }
         v_array[cur_vertex + 1] = current_edge;
     }
+    v_array[0] = 0;
     std::cout << "no segmentation in constructor" << endl;
 }
 
@@ -83,6 +86,31 @@ form_label_array(int _omp_threads, unsigned int vertices_count, unsigned int edg
     }
 }
 
+void CSR_GRAPH::save_to_graphviz_file(string _file_name, unsigned int * labels) {
+    ofstream dot_output(_file_name.c_str());
+    using namespace std;
+
+    string connection;
+    dot_output << "digraph G {" << endl;
+    connection = " -> ";
+
+    for (int cur_vertex = 0; cur_vertex < vertices_count; cur_vertex++) {
+        int src_id = cur_vertex;
+        for (long long edge_pos = v_array[cur_vertex]; edge_pos < v_array[cur_vertex + 1]; edge_pos++) {
+            int dst_id = e_array[edge_pos];
+            dot_output << src_id << connection << dst_id << endl;
+        }
+    }
+
+    if(labels!= NULL) {
+        for (int i = 0; i < this->vertices_count; i++) {
+            dot_output << i << " [label= \"id=" << i << ", value=" << labels[i] << "\"] " << endl;
+            //dot_output << i << " [label=" << this->vertex_values[i] << "]"<< endl;
+        }
+    }
+    dot_output << "}";
+    dot_output.close();
+}
 
 void CSR_GRAPH::adj_distribution(int _edges) {
 
@@ -179,3 +207,8 @@ int check(unsigned int edges_count, unsigned int *test_dest_labels, unsigned int
     }
     return 0;
 }
+
+int label_prop(unsigned int *dest_labels) {
+
+
+};
