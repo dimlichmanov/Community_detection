@@ -3,7 +3,7 @@
 //
 
 #include "CSR_GRAPH.h"
-#include "cuda_runtime.h"
+//#include "cuda_runtime.h"
 //#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 
 
@@ -15,5 +15,5 @@
 
 
 
-__global__ void gather_warp_per_vertex(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels, unsigned long long v,
-                              unsigned long long t) ;
+//__global__ void gather_warp_per_vertex(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels, unsigned long long v,
+                              //unsigned long long t) ;

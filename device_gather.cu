@@ -1,14 +1,14 @@
 
 
 //#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
-#include "cuda_runtime.h"
+//#include "cuda_runtime.h"
 #include "device_gather.h"
 #include <iostream>
 #include <stdio.h>
 #include <assert.h>
 #define WARP_SIZE 32
 
-#define SAFE_CALL( CallInstruction ) { \
+/*#define SAFE_CALL( CallInstruction ) { \
     cudaError_t cuerr = CallInstruction; \
     if(cuerr != cudaSuccess) { \
          printf("CUDA error: %s at call \"" #CallInstruction "\"\n", cudaGetErrorString(cuerr)); \
@@ -30,8 +30,8 @@
     } \
 }
 
-
-
+*/
+/*
 __global__ void gather_warp_per_vertex(unsigned int *v_array,unsigned int *e_array,unsigned int *dest_labels ,unsigned int *labels,
                               unsigned long  long edges, unsigned long long vertices) {
 
@@ -93,3 +93,4 @@ void CSR_GRAPH::move_to_host (unsigned int* dest_labels, unsigned int* labels, u
     std::cout<<"moved back"<<std::endl;
 
 }
+*/

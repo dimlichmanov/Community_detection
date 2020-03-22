@@ -9,54 +9,72 @@
 using namespace std;
 
 
-void louvain(size_t vertices_count, unsigned int *e_array, unsigned int *v_array, unsigned int *labels, unsigned float *weights, unsigned int *dest_labels){
+void louvain(size_t vertices_count, size_t edges_count,unsigned int *e_array, unsigned int *v_array, unsigned int *labels, float *weights){
     std::vector<unsigned int> v(vertices_count);
-    unsigned float modularity = 0;
-    for(int i =0;i<vertices_count;i++){
-        v[i] = i;
+    float modularity = 0;
+    float *k_i = new float[vertices_count];
+
+    for (unsigned int l = 0; l < vertices_count; ++l) {
+        labels[l] =l;
+        k_i[l] = 0;
+        for(unsigned int j = v_array[l]; j < v_array[l+1];j++){
+            k_i[l] += weights[j];
+        }
+        v[l] = l;
+
     }
 
-    unsigned float m = 0;
-    for(unsigned int i =0; i<edges_count;i+=2){
+    float m = 0;
+    for(unsigned int i =0; i<edges_count;i++){
         m+=weights[i];
     }
-
+    cout<<"m is "<<m<<endl;
+    m/=2;
+    bool updated;
+    int iters = 0;
     do {
         updated = false;
         std::random_device rd;
         std::mt19937 g(rd());
         std::shuffle(v.begin(), v.end(), g);
         for(unsigned int i = 0;i<vertices_count;i++){ //searching shuffled array
-            unsigned float local_modularity;
+            float local_modularity;
             unsigned int vertice_id = v[i];
             unsigned int begin  = v_array[vertice_id];
             unsigned int end = v_array[vertice_id + 1];
-            unsigned float weight_i = 0;
-            unsigned float weight_j = 0;
+            float weight_i = 0;
+            float weight_j = 0;
 
-            for(unsigned int j = begin; j < end;j++){
-                weight_i+=weights[j];
-            } //ki is counted
+            weight_i = k_i[vertice_id];
             unsigned int decision_label = vertices_count; //unreachable maximum label instead of -1
             for(unsigned int j = begin; j < end;j++){
                 float max_gain = 0;
-                for(unsigned l = v_array[e_array[j]]; l<v_array[e_array[j] + 1];l++) {
-                    weight_j+=weights[l];
-                }
-                float gain_modularity = (weights[j] - weight_i * weight_j/(2*m)) / (2*m); //?
-                if(gain_modularity > max_gain){
-                    max_gain = gain_modularity;
-                    updated = true;
-                    decision_label = labels[e_array[j]];
-                }
+                //for(unsigned l = v_array[e_array[j]]; l<v_array[e_array[j] + 1];l++) {
+                //    weight_j+=weights[l];
+                //}
 
+                weight_j = k_i[e_array[j]];
+
+                if(labels[vertice_id] != labels[e_array[j]]) {
+                    float gain_modularity = (weights[j] - weight_i * weight_j / (2 * m)) / (2 * m); //?
+
+                    if (gain_modularity > max_gain) {
+                        max_gain = gain_modularity;
+                        updated = true;
+                        decision_label = labels[e_array[j]];
+
+                    }
+                }
             }
             if(decision_label != vertices_count){
                 labels[vertice_id] = decision_label;
+                cout<<"vertice "<< vertice_id<<" is updated. New label is "<<decision_label <<endl;
             }
         }
+        iters ++;
     } while((updated)&&(iters<10));
-    
+    cout<<"iterations"<<iters<<endl;
+    delete[] k_i;
 }
 
 void lp(size_t vertices_count, unsigned int *e_array, unsigned int *v_array, unsigned int *labels) {
