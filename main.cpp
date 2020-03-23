@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
         //cout<<"2"<<endl;
         if (lp_flag) {
             //lp(vertices_count, a.get_e_array(), a.get_v_array(), labels);
-            louvain(vertices_count, edges_count, a.get_e_array(), a.get_v_array(), labels,a.get_weights());
+            louvain(vertices_count, edges_count, a.get_e_array(), a.get_v_array(), labels,a.get_weights(),true);
             a.save_to_graphviz_file("graph_res", labels);
             label_stats(labels, vertices_count);
             delete[] labels;

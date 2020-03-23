@@ -9,6 +9,6 @@
 void lp(size_t vertices_count, unsigned int *e_array, unsigned int *v_array, unsigned int *labels);
 
 
-void louvain(size_t vertices_count, size_t edges_count, unsigned int *e_array, unsigned int *v_array, unsigned int *labels, float *weights);
+void louvain(size_t vertices_count, size_t edges_count, unsigned int *e_array, unsigned int *v_array, unsigned int *labels, float *weights,bool directed);
 
 #endif //RMAT_LP_H
