@@ -213,6 +213,9 @@ int main(int argc, char **argv) {
         a.print_CSR_format();
 
         unsigned int *labels = new unsigned int[vertices_count];
+        for (unsigned int j = 0; j < vertices_count; j++) {
+            labels[j] = j;
+        }
         unsigned int *dest_labels = new unsigned int[edges_count];
         unsigned int *dev_labels;
         unsigned int *dev_dest_labels;
@@ -260,15 +263,15 @@ int main(int argc, char **argv) {
                    sizeof(unsigned int) * (2 * vertices_count + 2 * edges_count) / (time));
 
             mgpu::standard_context_t context;
-            std::vector<unsigned int> mem_gathered;
+            std::vector<int> mem_gathered;
             for (int k = 0; k < edges_count; k++) {
                 mem_gathered.push_back(dest_labels[k]);
             }
-            std::vector<unsigned int> segs_host;
+            std::vector<int> segs_host;
             for (int k = 0; k < vertices_count; k++) {
                 segs_host.push_back(a.get_v_array()[k]);
             }
-            
+
             for(int i = 0; i<segs_host.size();i++){
                 if(i == 0){
                     std::cout<<"[ "<<0<<" , "<<segs_host[0] - 1<<" ]"<<std::endl;
@@ -281,9 +284,9 @@ int main(int argc, char **argv) {
                 }
                 std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
             }
-            mgpu::mem_t<unsigned int> data = mgpu::to_mem(mem_gathered,context);
-            mgpu::mem_t<unsigned int> segs = mgpu::to_mem(segs_host,context);
-            mgpu::mem_t<unsigned int> values(edges_count, context);
+            mgpu::mem_t<int> data = mgpu::to_mem(mem_gathered,context);
+            mgpu::mem_t<int> segs = mgpu::to_mem(segs_host,context);
+            mgpu::mem_t<int> values(edges_count, context);
 
             mgpu::segmented_sort(data.data(), values.data(), edges_count, segs.data(), vertices_count , mgpu::less_t<int>(), context);
             std::vector<int> values_host = from_mem(data);
