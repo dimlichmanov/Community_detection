@@ -123,6 +123,26 @@ void input(char *filename, bool directed, unsigned int *&src_ids, unsigned int *
 }
 
 
+__global__ void extract_boundaries_initial(bool *boundaries, unsigned int * v_array, unsigned int edges_count){
+
+    unsigned long int i = threadIdx.x + blockIdx.x * blockDim.x;
+    unsigned long int position = v_array[i];
+    if(i != 0){
+        boundaries[position - 1] = 1;
+    } else {
+        boundaries[edges_count - 1] = 1;
+    }
+}
+
+__global__ void extract_boundaries_optional(bool * boundaries, unsigned int *dest_labels, unsigned int edges_count){
+    unsigned long int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if(boundaries[i] != 1){
+        if(dest_labels[i]!=dest_labels[i+1]){
+            boundaries[i] = 1;
+        }
+    }
+}
+
 using namespace std;
 
 
@@ -209,8 +229,8 @@ int main(int argc, char **argv) {
 
         cout << endl;
         CSR_GRAPH a(vertices_count, edges_count, src_ids, dst_ids, weights, true);
-        a.save_to_graphviz_file("graph_pred", NULL);
-        a.print_CSR_format();
+        //a.save_to_graphviz_file("graph_pred", NULL);
+        //a.print_CSR_format();
 
         unsigned int *labels = new unsigned int[vertices_count];
         for (unsigned int j = 0; j < vertices_count; j++) {
@@ -219,23 +239,27 @@ int main(int argc, char **argv) {
         unsigned int *dest_labels = new unsigned int[edges_count];
         unsigned int *dev_labels;
         unsigned int *dev_dest_labels;
+        bool *f_array;
 
         if (gather_flag) {
 
             SAFE_CALL((cudaMalloc((void **) &dev_labels, (size_t) (sizeof(unsigned int)) * (vertices_count))));
             SAFE_CALL((cudaMalloc((void **) &dev_dest_labels, (size_t) (sizeof(unsigned int)) * edges_count)));
+            SAFE_CALL((cudaMalloc((void **) &f_array, (size_t) (sizeof(bool)) * edges_count)));
+            SAFE_CALL((cudaMemset(f_array,0,(size_t) (sizeof(bool)) * edges_count)));
 
             a.move_to_device(dest_labels, labels, dev_dest_labels, dev_labels);
 
             SAFE_CALL(cudaEventRecord(start));
-            //dim3 block(1024, 1);
-            //dim3 grid(vertices_count * 32 / block.x, 1);
-            dim3 block(vertices_count * 32 , 1);
-            dim3 grid(1,1);
 
-            printf("starting...");
-            SAFE_KERNEL_CALL((gather_warp_per_vertex <<< grid, block >>>
-                                                                (a.get_dev_v_array(), a.get_dev_e_array(), dev_dest_labels, dev_labels, edges_count, vertices_count)));
+            {
+                dim3 block(1024, 1);
+                dim3 grid(vertices_count * 32 / block.x, 1);
+
+                printf("starting...");
+                SAFE_KERNEL_CALL((gather_warp_per_vertex << < grid, block >> >
+                                                                    (a.get_dev_v_array(), a.get_dev_e_array(), dev_dest_labels, dev_labels, edges_count, vertices_count)));
+            }
             printf("terminating....");
             SAFE_CALL(cudaEventRecord(stop));
             SAFE_CALL(cudaEventSynchronize(stop));
@@ -244,7 +268,7 @@ int main(int argc, char **argv) {
             time *= 1000000;
             a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
             SAFE_CALL(cudaFree(dev_labels));
-            SAFE_CALL(cudaFree(dev_dest_labels));
+
 
             if (check_flag) {
                 unsigned int *test_dest_labels = new unsigned int[edges_count];
@@ -272,32 +296,60 @@ int main(int argc, char **argv) {
                 segs_host.push_back(a.get_v_array()[k]);
             }
 
-            for(int i = 0; i<segs_host.size();i++){
-                if(i == 0){
-                    std::cout<<"[ "<<0<<" , "<<segs_host[0] - 1<<" ]"<<std::endl;
-                    std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
-                    continue;
-                }
-                if(i == segs_host.size() - 1){
-                    std::cout<<"[ "<<segs_host[segs_host.size() - 1 ]<<" , "<<  edges_count -1 <<" ]"<<std::endl; ;
-                    continue;
-                }
-                std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
-            }
+//            for(int i = 0; i<segs_host.size();i++){
+//                if(i == 0){
+//                    std::cout<<"[ "<<0<<" , "<<segs_host[0] - 1<<" ]"<<std::endl;
+//                    std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
+//                    continue;
+//                }
+//                if(i == segs_host.size() - 1){
+//                    std::cout<<"[ "<<segs_host[segs_host.size() - 1 ]<<" , "<<  edges_count -1 <<" ]"<<std::endl; ;
+//                    continue;
+//                }
+//                std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
+//            }
+
             mgpu::mem_t<int> data = mgpu::to_mem(mem_gathered,context);
             mgpu::mem_t<int> segs = mgpu::to_mem(segs_host,context);
             mgpu::mem_t<int> values(edges_count, context);
 
             mgpu::segmented_sort(data.data(), values.data(), edges_count, segs.data(), vertices_count , mgpu::less_t<int>(), context);
-            std::vector<int> values_host = from_mem(data);
+            std::vector<int> values_host = from_mem(data); // gather
 
             for(int i = 0; i<values_host.size();i++){
                 std::cout<<i<<" -th element is "<<values_host[i]<<" "<<std::endl;
             }
+
+            {
+                dim3 block(1024, 1);
+                dim3 grid(vertices_count / 1024, 1);
+
+                SAFE_KERNEL_CALL((extract_boundaries_initial << < grid, block >> > (f_array, a.get_dev_v_array(), edges_count)));
+            }
+            {
+                dim3 block(1024, 1);
+                dim3 grid(edges_count / 1024, 1);
+
+                SAFE_KERNEL_CALL((extract_boundaries_optional << < grid, block >> > (f_array, dev_dest_labels, edges_count)));
+            }
+            a.get_dev_v_array();
+            a.get_dev_e_array();
+            a.get_dev_weigths();
+            SAFE_CALL(cudaFree(dev_dest_labels));
+            SAFE_CALL(cudaFree(a.get_dev_v_array()));
+            SAFE_CALL(cudaFree(a.get_dev_e_array()));
+            SAFE_CALL(cudaFree(a.get_dev_weigths())); //check for unweigthed graph!
+            SAFE_CALL(cudaFree(f_array));
+
+
+
         }
-        //cout<<"2"<<endl;
+
+
+
         if (lp_flag) {
             lp(vertices_count, a.get_e_array(), a.get_v_array(), labels);
+            //louvain(vertices_count, edges_count, a.get_e_array(), a.get_v_array(), labels,a.get_weights(),true);
             a.save_to_graphviz_file("graph_res", labels);
             label_stats(labels, vertices_count);
             delete[] labels;
