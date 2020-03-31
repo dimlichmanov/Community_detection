@@ -1,3 +1,7 @@
+//#include "./moderngpu/src/moderngpu/kernel_segsort.hxx"
+//#include "./moderngpu/src/moderngpu/memory.hxx"
+#include "./moderngpu/kernel_segsort.hxx"
+#include "./moderngpu/memory.hxx"
 #include <omp.h>
 #include <iostream>
 #include <string.h>
@@ -11,6 +15,18 @@
 #include <string>
 #include <vector>
 #include "lp.h"
+#include "CSR_GRAPH.h"
+#include "generator.h"
+
+//#include "./moderngpu/kernel_segsort.hxx"
+//#include "./moderngpu/memory.hxx"
+#include "device_gather.h"
+
+//#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
+#include "cuda_runtime.h"
+//#include "/usr/local/cuda-10.1/include/cuda_profiler_api.h"
+#include "cuda_profiler_api.h"
+
 #include "map"
 
 #define SAFE_CALL(CallInstruction) { \
@@ -106,21 +122,8 @@ void input(char *filename, bool directed, unsigned int *&src_ids, unsigned int *
     }
 }
 
-#include "CSR_GRAPH.h"
-#include "generator.h"
-#include "device_gather.h"
-
-//#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
-#include "cuda_runtime.h"
-//#include "/usr/local/cuda-10.1/include/cuda_profiler_api.h"
-#include "cuda_profiler_api.h"
 
 using namespace std;
-
-
-#ifndef uint32_t
-#define uint32_t int
-#endif
 
 
 int main(int argc, char **argv) {
@@ -200,9 +203,9 @@ int main(int argc, char **argv) {
         }
 
 
-        for (int i = 0; i < edges_count; i++) {
-            cout << src_ids[i] << "----" << dst_ids[i] << endl;
-        }
+//        for (int i = 0; i < edges_count; i++) {
+//            cout << src_ids[i] << "----" << dst_ids[i] << endl;
+//        }
 
         cout << endl;
         CSR_GRAPH a(vertices_count, edges_count, src_ids, dst_ids, weights, true);
@@ -218,16 +221,17 @@ int main(int argc, char **argv) {
 
             SAFE_CALL((cudaMalloc((void **) &dev_labels, (size_t) (sizeof(unsigned int)) * (vertices_count))));
             SAFE_CALL((cudaMalloc((void **) &dev_dest_labels, (size_t) (sizeof(unsigned int)) * edges_count)));
+
             a.move_to_device(dest_labels, labels, dev_dest_labels, dev_labels);
 
             SAFE_CALL(cudaEventRecord(start));
-            dim3 block(1024, 1);
-            dim3 grid(vertices_count * 32 / block.x, 1);
-            //dim3 block(16,1);
-            //dim3 grid(1,1);
+            //dim3 block(1024, 1);
+            //dim3 grid(vertices_count * 32 / block.x, 1);
+            dim3 block(vertices_count * 32 , 1);
+            dim3 grid(1,1);
 
             printf("starting...");
-            SAFE_KERNEL_CALL((gather_warp_per_vertex << < grid, block >> >
+            SAFE_KERNEL_CALL((gather_warp_per_vertex <<< grid, block >>>
                                                                 (a.get_dev_v_array(), a.get_dev_e_array(), dev_dest_labels, dev_labels, edges_count, vertices_count)));
             printf("terminating....");
             SAFE_CALL(cudaEventRecord(stop));
@@ -254,6 +258,39 @@ int main(int argc, char **argv) {
             printf("GATHER Bandwidth for 2^%d vertices and 2^%d edges is %f GB/s\n ", vertices_index,
                    vertices_index + (int) log2((double) density_degree),
                    sizeof(unsigned int) * (2 * vertices_count + 2 * edges_count) / (time));
+
+            mgpu::standard_context_t context;
+            std::vector<unsigned int> mem_gathered;
+            for (int k = 0; k < edges_count; k++) {
+                mem_gathered.push_back(dest_labels[k]);
+            }
+            std::vector<unsigned int> segs_host;
+            for (int k = 0; k < vertices_count; k++) {
+                segs_host.push_back(a.get_v_array()[k]);
+            }
+            
+            for(int i = 0; i<segs_host.size();i++){
+                if(i == 0){
+                    std::cout<<"[ "<<0<<" , "<<segs_host[0] - 1<<" ]"<<std::endl;
+                    std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
+                    continue;
+                }
+                if(i == segs_host.size() - 1){
+                    std::cout<<"[ "<<segs_host[segs_host.size() - 1 ]<<" , "<<  edges_count -1 <<" ]"<<std::endl; ;
+                    continue;
+                }
+                std::cout<<"[ "<<segs_host[i]<<" , "<< segs_host[i+1] - 1 <<" ]"<<std::endl;
+            }
+            mgpu::mem_t<unsigned int> data = mgpu::to_mem(mem_gathered,context);
+            mgpu::mem_t<unsigned int> segs = mgpu::to_mem(segs_host,context);
+            mgpu::mem_t<unsigned int> values(edges_count, context);
+
+            mgpu::segmented_sort(data.data(), values.data(), edges_count, segs.data(), vertices_count , mgpu::less_t<int>(), context);
+            std::vector<int> values_host = from_mem(data);
+
+            for(int i = 0; i<values_host.size();i++){
+                std::cout<<i<<" -th element is "<<values_host[i]<<" "<<std::endl;
+            }
         }
         //cout<<"2"<<endl;
         if (lp_flag) {
