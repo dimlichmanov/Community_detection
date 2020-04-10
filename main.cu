@@ -88,6 +88,13 @@ void debug_info(bool *ptr, int size_n, string info) {
     cout << endl;
 }
 
+void debug_info(short *ptr, int size_n, string info) {
+    cout << info << endl;
+    for (int i = 0; i < size_n; i++) {
+        std::cout << ptr[i] << " ";
+    }
+    cout << endl;
+}
 
 void print_bounds(std::vector<int> &ptr, int edges_count) {
     for (int i = 0; i < ptr.size(); i++) {
@@ -197,14 +204,14 @@ __global__ void extract_boundaries_optional(short *boundaries, unsigned  int *de
     }
 }
 
-__global__ void count_labels(int *scanned_array, unsigned int edges_count, int *S_array) {
+__global__ void count_labels(unsigned int *scanned_array, unsigned int edges_count, int *S_array) {
     unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
     if ((i < edges_count - 1) && (scanned_array[i + 1] != scanned_array[i])) {
         S_array[scanned_array[i]] = i;
     }
 }
 
-__global__ void new_boundaries(int *scanned_array, unsigned int *v_array, unsigned int edges_count, int *S_ptr) {
+__global__ void new_boundaries(unsigned int *scanned_array, unsigned int *v_array, unsigned int edges_count, int *S_ptr) {
     unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
     S_ptr[i] = scanned_array[v_array[i]];
 }
@@ -303,23 +310,14 @@ int main(int argc, char **argv) {
             cout << "edges: " << edges_count << endl;
         }
 
-
-//        for (int i = 0; i < edges_count; i++) {
-//            cout << src_ids[i] << "----" << dst_ids[i] << endl;
-//        }
-
         cout << endl;
         CSR_GRAPH a(vertices_count, edges_count, src_ids, dst_ids, weights, true);
-        a.save_to_graphviz_file("graph_pred", NULL);
-        a.print_CSR_format();
+        //a.save_to_graphviz_file("graph_pred", NULL);
+        //a.print_CSR_format();
 
         unsigned int *labels = new unsigned int[vertices_count];
         for (unsigned int j = 0; j < vertices_count; j++) {
             labels[j] = j;
-        }
-        cout << "LABELS : ";
-        for (unsigned int j = 0; j < vertices_count; j++) {
-            cout << labels[j] << " ";
         }
         unsigned int *dest_labels = new unsigned int[edges_count];
         unsigned int *dev_labels;
@@ -334,15 +332,28 @@ int main(int argc, char **argv) {
 
             a.move_to_device(dest_labels, labels, dev_dest_labels, dev_labels);
 
+
+
+            cout<<1<<endl;
             int iter = 0;
             mgpu::standard_context_t context;
+            std::vector<int> ptr; //Bounds as segments
+            for (int k = 0; k < vertices_count; k++) {
+                ptr.push_back(a.get_v_array()[k]);
+            }
+
+            cout<<2<<endl;
+            mgpu::mem_t<int> segs = mgpu::to_mem(ptr, context);
+            mgpu::mem_t<int> s_ptr_array(vertices_count, context);
+            mgpu::mem_t<int> out(vertices_count, context);
+            cout<<3<<endl;
             do {
                 SAFE_CALL(cudaEventRecord(start));
 
                 {
                     //Change configuration after
-                    dim3 block(32 * vertices_count, 1);
-                    dim3 grid(1, 1); //only for test
+                    dim3 block(1024, 1);
+                    dim3 grid(32*vertices_count/block.x, 1); //only for test
                     printf("starting...");
                     SAFE_KERNEL_CALL((gather_warp_per_vertex << < grid, block >> >
                                                                         (a.get_dev_v_array(), a.get_dev_e_array(), dev_dest_labels, dev_labels, edges_count, vertices_count)));
@@ -353,7 +364,8 @@ int main(int argc, char **argv) {
                 float time;
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
                 time *= 1000000;
-                //a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
+                a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
+                //mgpu::mem_t<int> F_scanned(edges_count, context);
 
 
                 if (check_flag) {
@@ -374,96 +386,84 @@ int main(int argc, char **argv) {
                        sizeof(unsigned int) * (2 * vertices_count + 2 * edges_count) / (time));
 
 
-                //mgpu::standard_context_t context;
+                //print_bounds(ptr, edges_count);
+                //debug_info(dest_labels,edges_count,"initial gather");
 
-//                std::vector<int> L; //GATHER
-//                for (int k = 0; k < edges_count; k++) {
-//                    L.push_back(dest_labels[k]);
-//                }
 
-                std::vector<int> ptr; //Bounds as segments
-                for (int k = 0; k < vertices_count; k++) {
-                    ptr.push_back(a.get_v_array()[k]);
-                }
-
-                print_bounds(ptr, edges_count);
-
-//                mgpu::mem_t<int> data = mgpu::to_mem(L, context);
-                mgpu::mem_t<int> segs = mgpu::to_mem(ptr, context);
+                cout<<4<<endl;
                 mgpu::mem_t<int> values(edges_count, context);
-
-                //debug_info(L, "initial gather");
 
 
                 mgpu::segmented_sort(dev_dest_labels, values.data(), edges_count, segs.data(), vertices_count,
                                      mgpu::less_t<int>(), context);
 
-//                std::vector<int> L_sorted = from_mem(data); // gather
-//
-//                debug_info(L_sorted, "sorted_gather");
+                cout<<5<<endl;
+                //cudaMemcpy(dest_labels,dev_dest_labels,edges_count,cudaMemcpyDeviceToHost);
+
+                //debug_info(dest_labels,edges_count, "sorted_gather");
 
                 SAFE_CALL((cudaMemset(F_mem, 0, (size_t) (sizeof(short)) * edges_count))); //was taken from group of memcpy
 
                 {
-                    dim3 block(vertices_count, 1);
-                    dim3 grid(1, 1);
+                    dim3 block(1024, 1);
+                    dim3 grid(vertices_count/block.x, 1);
 
                     SAFE_KERNEL_CALL(
                             (extract_boundaries_initial << < grid, block >> >
                                                                    (F_mem, a.get_dev_v_array(), edges_count))); //fill 1 in bounds
                 }
+                cout<<6<<endl;
                 {
-                    dim3 block(edges_count, 1);
-                    dim3 grid(1, 1);
+                    dim3 block(1024, 1);
+                    dim3 grid(edges_count/block.x, 1);
 
                     SAFE_KERNEL_CALL(
                             (extract_boundaries_optional << < grid, block >> >
                                                                     (F_mem, dev_dest_labels, edges_count))); //sub(i+1, i)
                 }
 
-//                bool *F_host = new bool[edges_count];
-//                cudaMemcpy(F_host, F_mem, (size_t) edges_count * sizeof(bool), cudaMemcpyDeviceToHost);
-//
-//                debug_info(F_host, edges_count, "neighbors");
+                //short *F_host = new short[edges_count];
+                //cudaMemcpy(F_host, F_mem, (size_t) edges_count * sizeof(short), cudaMemcpyDeviceToHost);
 
-//                std::vector<int> F_host_;
-//                for (int k = 0; k < edges_count; k++) {
-//                    F_host_.push_back(F_host[k]);
-//                }
-
-                //mgpu::mem_t<int> F_memt = mgpu::to_mem(F_host_, context);
+                //debug_info(F_host, edges_count, "neighbors");
 
 
-                mgpu::mem_t<int> F_scanned(edges_count, context);
+                mgpu::mem_t<unsigned int> F_scanned(edges_count, context);
 
+                cout<<7<<endl;
                 mgpu::scan(F_mem, edges_count, F_scanned.data(), context); // may not work because of bool
 
-//                std::vector<int> hosted_bounds = from_mem(F_scanned); // gather
-//
-//                debug_info(hosted_bounds, "scanned F");
+                //std::vector<int> hosted_bounds = from_mem(F_scanned); // gather
 
-                int reduced_size;
-                cudaMemcpy(&reduced_size, &F_scanned.data()[edges_count - 1], sizeof(int), cudaMemcpyDeviceToHost);
+                //debug_info(hosted_bounds, "scanned F");
+                SAFE_CALL(cudaDeviceSynchronize());
+                cout<<8<<endl;
+                unsigned int reduced_size;
+
+                SAFE_CALL(cudaMemcpy(&reduced_size, &F_scanned.data()[edges_count - 1 ], sizeof(unsigned int), cudaMemcpyDeviceToHost));
+
 
                 mgpu::mem_t<int> s_array(reduced_size, context);
-
+                cout<<9<<endl;
                 {
-                    dim3 block(edges_count, 1);
-                    dim3 grid(1, 1);
+                    dim3 block(1024, 1);
+                    dim3 grid(edges_count/block.x, 1);
                     SAFE_KERNEL_CALL(
                             (count_labels << < grid, block >> > (F_scanned.data(), edges_count, s_array.data())));
                 }
 
 
-//                std::vector<int> s_host = from_mem(s_array);
-//
-//                debug_info(s_host, "S for frequency");
+                //std::vector<int> s_host = from_mem(s_array);
 
-                mgpu::mem_t<int> s_ptr_array(vertices_count, context);
+                //debug_info(s_host, "S for frequency");
 
+                //mgpu::mem_t<int> s_ptr_array(vertices_count, context);
+
+
+                cout<<10<<endl;
                 {
-                    dim3 block(vertices_count, 1);
-                    dim3 grid(1, 1);
+                    dim3 block(1024, 1);
+                    dim3 grid(vertices_count/block.x, 1);
                     SAFE_KERNEL_CALL((new_boundaries << < grid, block >> >
                                                                 (F_scanned.data(), a.get_dev_v_array(), edges_count, s_ptr_array.data())));
                 }
@@ -471,21 +471,22 @@ int main(int argc, char **argv) {
 //                std::vector<int> ptr_host = from_mem(s_ptr_array);
 //
 //                debug_info(ptr_host, "new bounds");
-
+                cout<<11<<endl;
                 mgpu::mem_t<int> w_array(reduced_size, context);
                 {
-                    dim3 block(reduced_size, 1);
-                    dim3 grid(1, 1);
+                    dim3 block(1024, 1);
+                    dim3 grid(reduced_size/block.x, 1);
 
 
                     SAFE_KERNEL_CALL((frequency_count << < grid, block >> > (w_array.data(), s_array.data())));
                 }
+                cout<<12<<endl;
 
 //                std::vector<int> w_host = from_mem(w_array);
 //                std::vector<int> debug_w((size_t) reduced_size);
 //                debug_info(w_host, "W_array");
 
-                mgpu::mem_t<int> out(vertices_count, context);
+
 
                 std::vector<int> I;
                 for (int k = 0; k < reduced_size; k++) { //indices for reduce
@@ -495,16 +496,14 @@ int main(int argc, char **argv) {
                 mgpu::mem_t<int> I_mem = mgpu::to_mem(I, context);
 
                 int init = 0;
-
+                cout<<13<<endl;
 
 //            auto k = [] MGPU_DEVICE(int tid, int cta) {
 //
 //            };
                 int *w_ptr = w_array.data();
 
-                auto my_cool_lambda =[w_ptr] MGPU_DEVICE(int
-                a, int
-                b) ->int{
+                auto my_cool_lambda =[w_ptr] MGPU_DEVICE(int a, int b) ->int{
                         if ( w_ptr[a] > w_ptr[b]){
                             return a;
                         } else{
@@ -521,18 +520,20 @@ int main(int argc, char **argv) {
 
 
                 {
-                    dim3 block(vertices_count, 1);
-                    dim3 grid(1, 1);
+                    dim3 block(1024, 1);
+                    dim3 grid(vertices_count/block.x, 1);
                     SAFE_KERNEL_CALL((get_labels << < grid, block >> >
                                                             (out.data(), s_array.data(), dev_dest_labels, dev_labels)));
                 }
 
-                cudaMemcpy(labels,dev_labels,vertices_count,cudaMemcpyDeviceToHost);
-                std::cout<<"Iteration "<<iter<< " is over"<<endl;
-                debug_info(labels,vertices_count,"Labels after current iteration");
+//                cudaMemcpy(labels,dev_labels,vertices_count,cudaMemcpyDeviceToHost);
+//                std::cout<<"Iteration "<<iter<< " is over"<<endl;
+//                debug_info(labels,vertices_count,"Labels after current iteration");
 
                 iter++;
-            }while (iter <4);
+            } while (iter <4);
+            //cudaMemcpy(labels,dev_labels,edges_count,cudaMemcpyDeviceToHost);
+            //debug_info(labels,vertices_count, "FINALLY");
             a.get_dev_v_array();
             a.get_dev_e_array();
             a.get_dev_weigths();
