@@ -177,7 +177,7 @@ void input(char *filename, bool directed, unsigned int *&src_ids, unsigned int *
     }
 }
 
-__global__ void extract_boundaries_initial(bool *boundaries, unsigned int *v_array, unsigned int edges_count) {
+__global__ void extract_boundaries_initial(short *boundaries, unsigned int *v_array, unsigned int edges_count) {
 
     unsigned long int i = threadIdx.x + blockIdx.x * blockDim.x;
     unsigned long int position = v_array[i];
@@ -188,7 +188,7 @@ __global__ void extract_boundaries_initial(bool *boundaries, unsigned int *v_arr
     }
 }
 
-__global__ void extract_boundaries_optional(bool *boundaries, int *dest_labels, unsigned int edges_count) {
+__global__ void extract_boundaries_optional(short *boundaries, unsigned  int *dest_labels, unsigned int edges_count) {
     unsigned long int i = threadIdx.x + blockIdx.x * blockDim.x;
     if ((boundaries[i] != 1) && (i < edges_count)) {
         if (dest_labels[i] != dest_labels[i + 1]) {
@@ -218,7 +218,7 @@ __global__ void frequency_count(int *W_array, int *S) {
     }
 }
 
-__global__ void get_labels(int *I , int* S, int *L ,unsigned int* labels){
+__global__ void get_labels(int *I , int* S, unsigned int *L ,unsigned int* labels){
     unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
     labels[i] = L[S[I[i]]];
 }
@@ -297,7 +297,7 @@ int main(int argc, char **argv) {
         } else {
             cout << test_flag << endl;
             cout << "file_init" << endl;
-            input(test_file, false, src_ids, dst_ids, vertices_count, edges_count);
+            input(test_file, true, src_ids, dst_ids, vertices_count, edges_count);
             vertices_count++;
             cout << "vertices:" << vertices_count << endl;
             cout << "edges: " << edges_count << endl;
@@ -324,17 +324,18 @@ int main(int argc, char **argv) {
         unsigned int *dest_labels = new unsigned int[edges_count];
         unsigned int *dev_labels;
         unsigned int *dev_dest_labels;
-        bool *F_mem;
+        short *F_mem;
 
         if (gather_flag) {
 
             SAFE_CALL((cudaMalloc((void **) &dev_labels, (size_t) (sizeof(unsigned int)) * (vertices_count))));
             SAFE_CALL((cudaMalloc((void **) &dev_dest_labels, (size_t) (sizeof(unsigned int)) * edges_count)));
-            SAFE_CALL((cudaMalloc((void **) &F_mem, (size_t) (sizeof(bool)) * edges_count)));
-            SAFE_CALL((cudaMemset(F_mem, 0, (size_t) (sizeof(bool)) * edges_count)));
+            SAFE_CALL((cudaMalloc((void **) &F_mem, (size_t) (sizeof(short)) * edges_count)));
+
             a.move_to_device(dest_labels, labels, dev_dest_labels, dev_labels);
 
             int iter = 0;
+            mgpu::standard_context_t context;
             do {
                 SAFE_CALL(cudaEventRecord(start));
 
@@ -352,7 +353,7 @@ int main(int argc, char **argv) {
                 float time;
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
                 time *= 1000000;
-                a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
+                //a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
 
 
                 if (check_flag) {
@@ -373,12 +374,12 @@ int main(int argc, char **argv) {
                        sizeof(unsigned int) * (2 * vertices_count + 2 * edges_count) / (time));
 
 
-                mgpu::standard_context_t context;
+                //mgpu::standard_context_t context;
 
-                std::vector<int> L; //GATHER
-                for (int k = 0; k < edges_count; k++) {
-                    L.push_back(dest_labels[k]);
-                }
+//                std::vector<int> L; //GATHER
+//                for (int k = 0; k < edges_count; k++) {
+//                    L.push_back(dest_labels[k]);
+//                }
 
                 std::vector<int> ptr; //Bounds as segments
                 for (int k = 0; k < vertices_count; k++) {
@@ -387,19 +388,21 @@ int main(int argc, char **argv) {
 
                 print_bounds(ptr, edges_count);
 
-                mgpu::mem_t<int> data = mgpu::to_mem(L, context);
+//                mgpu::mem_t<int> data = mgpu::to_mem(L, context);
                 mgpu::mem_t<int> segs = mgpu::to_mem(ptr, context);
                 mgpu::mem_t<int> values(edges_count, context);
 
-                debug_info(L, "initial gather");
+                //debug_info(L, "initial gather");
 
 
-                mgpu::segmented_sort(data.data(), values.data(), edges_count, segs.data(), vertices_count,
+                mgpu::segmented_sort(dev_dest_labels, values.data(), edges_count, segs.data(), vertices_count,
                                      mgpu::less_t<int>(), context);
 
-                std::vector<int> L_sorted = from_mem(data); // gather
+//                std::vector<int> L_sorted = from_mem(data); // gather
+//
+//                debug_info(L_sorted, "sorted_gather");
 
-                debug_info(L_sorted, "sorted_gather");
+                SAFE_CALL((cudaMemset(F_mem, 0, (size_t) (sizeof(short)) * edges_count))); //was taken from group of memcpy
 
                 {
                     dim3 block(vertices_count, 1);
@@ -415,30 +418,33 @@ int main(int argc, char **argv) {
 
                     SAFE_KERNEL_CALL(
                             (extract_boundaries_optional << < grid, block >> >
-                                                                    (F_mem, data.data(), edges_count))); //sub(i+1, i)
+                                                                    (F_mem, dev_dest_labels, edges_count))); //sub(i+1, i)
                 }
 
-                bool *F_host = new bool[edges_count];
-                cudaMemcpy(F_host, F_mem, (size_t) edges_count * sizeof(bool), cudaMemcpyDeviceToHost);
+//                bool *F_host = new bool[edges_count];
+//                cudaMemcpy(F_host, F_mem, (size_t) edges_count * sizeof(bool), cudaMemcpyDeviceToHost);
+//
+//                debug_info(F_host, edges_count, "neighbors");
 
-                debug_info(F_host, edges_count, "neighbors");
+//                std::vector<int> F_host_;
+//                for (int k = 0; k < edges_count; k++) {
+//                    F_host_.push_back(F_host[k]);
+//                }
 
-                std::vector<int> F_host_;
-                for (int k = 0; k < edges_count; k++) {
-                    F_host_.push_back(F_host[k]);
-                }
+                //mgpu::mem_t<int> F_memt = mgpu::to_mem(F_host_, context);
 
-                mgpu::mem_t<int> F_memt = mgpu::to_mem(F_host_, context);
+
                 mgpu::mem_t<int> F_scanned(edges_count, context);
 
-                mgpu::scan(F_memt.data(), edges_count, F_scanned.data(), context);
+                mgpu::scan(F_mem, edges_count, F_scanned.data(), context); // may not work because of bool
 
-                std::vector<int> hosted_bounds = from_mem(F_scanned); // gather
-
-                debug_info(hosted_bounds, "scanned F");
+//                std::vector<int> hosted_bounds = from_mem(F_scanned); // gather
+//
+//                debug_info(hosted_bounds, "scanned F");
 
                 int reduced_size;
                 cudaMemcpy(&reduced_size, &F_scanned.data()[edges_count - 1], sizeof(int), cudaMemcpyDeviceToHost);
+
                 mgpu::mem_t<int> s_array(reduced_size, context);
 
                 {
@@ -449,9 +455,9 @@ int main(int argc, char **argv) {
                 }
 
 
-                std::vector<int> s_host = from_mem(s_array);
-
-                debug_info(s_host, "S for frequency");
+//                std::vector<int> s_host = from_mem(s_array);
+//
+//                debug_info(s_host, "S for frequency");
 
                 mgpu::mem_t<int> s_ptr_array(vertices_count, context);
 
@@ -462,9 +468,9 @@ int main(int argc, char **argv) {
                                                                 (F_scanned.data(), a.get_dev_v_array(), edges_count, s_ptr_array.data())));
                 }
 
-                std::vector<int> ptr_host = from_mem(s_ptr_array);
-
-                debug_info(ptr_host, "new bounds");
+//                std::vector<int> ptr_host = from_mem(s_ptr_array);
+//
+//                debug_info(ptr_host, "new bounds");
 
                 mgpu::mem_t<int> w_array(reduced_size, context);
                 {
@@ -475,9 +481,9 @@ int main(int argc, char **argv) {
                     SAFE_KERNEL_CALL((frequency_count << < grid, block >> > (w_array.data(), s_array.data())));
                 }
 
-                std::vector<int> w_host = from_mem(w_array);
-                std::vector<int> debug_w((size_t) reduced_size);
-                debug_info(w_host, "W_array");
+//                std::vector<int> w_host = from_mem(w_array);
+//                std::vector<int> debug_w((size_t) reduced_size);
+//                debug_info(w_host, "W_array");
 
                 mgpu::mem_t<int> out(vertices_count, context);
 
@@ -510,15 +516,15 @@ int main(int argc, char **argv) {
                 mgpu::segreduce(I_mem.data(), reduced_size, s_ptr_array.data(), vertices_count, out.data(),
                                 my_cool_lambda, (int) init, context);
 
-                std::vector<int> i_host = from_mem(out);
-                debug_info(i_host, "seg_reduce");
+//                std::vector<int> i_host = from_mem(out);
+//                debug_info(i_host, "seg_reduce");
 
 
                 {
                     dim3 block(vertices_count, 1);
                     dim3 grid(1, 1);
                     SAFE_KERNEL_CALL((get_labels << < grid, block >> >
-                                                            (out.data(), s_array.data(), data.data(), dev_labels)));
+                                                            (out.data(), s_array.data(), dev_dest_labels, dev_labels)));
                 }
 
                 cudaMemcpy(labels,dev_labels,vertices_count,cudaMemcpyDeviceToHost);
