@@ -331,9 +331,6 @@ int main(int argc, char **argv) {
             SAFE_CALL((cudaMalloc((void **) &F_mem, (size_t) (sizeof(short)) * edges_count)));
 
             a.move_to_device(dest_labels, labels, dev_dest_labels, dev_labels);
-
-
-
             cout<<1<<endl;
             int iter = 0;
             mgpu::standard_context_t context;
@@ -365,9 +362,6 @@ int main(int argc, char **argv) {
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
                 time *= 1000000;
                 a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
-                //mgpu::mem_t<int> F_scanned(edges_count, context);
-
-
                 if (check_flag) {
                     unsigned int *test_dest_labels = new unsigned int[edges_count];
                     form_label_array(threads, vertices_count, edges_count, test_dest_labels, a.get_dev_v_array(),
@@ -386,10 +380,6 @@ int main(int argc, char **argv) {
                        sizeof(unsigned int) * (2 * vertices_count + 2 * edges_count) / (time));
 
 
-                //print_bounds(ptr, edges_count);
-                //debug_info(dest_labels,edges_count,"initial gather");
-
-
                 cout<<4<<endl;
                 mgpu::mem_t<int> values(edges_count, context);
 
@@ -398,9 +388,6 @@ int main(int argc, char **argv) {
                                      mgpu::less_t<int>(), context);
 
                 cout<<5<<endl;
-                //cudaMemcpy(dest_labels,dev_dest_labels,edges_count,cudaMemcpyDeviceToHost);
-
-                //debug_info(dest_labels,edges_count, "sorted_gather");
 
                 SAFE_CALL((cudaMemset(F_mem, 0, (size_t) (sizeof(short)) * edges_count))); //was taken from group of memcpy
 
@@ -421,28 +408,18 @@ int main(int argc, char **argv) {
                             (extract_boundaries_optional << < grid, block >> >
                                                                     (F_mem, dev_dest_labels, edges_count))); //sub(i+1, i)
                 }
-
-                //short *F_host = new short[edges_count];
-                //cudaMemcpy(F_host, F_mem, (size_t) edges_count * sizeof(short), cudaMemcpyDeviceToHost);
-
-                //debug_info(F_host, edges_count, "neighbors");
-
-
                 mgpu::mem_t<unsigned int> F_scanned(edges_count, context);
 
                 cout<<7<<endl;
                 mgpu::scan(F_mem, edges_count, F_scanned.data(), context); // may not work because of bool
-
-                //std::vector<int> hosted_bounds = from_mem(F_scanned); // gather
-
-                //debug_info(hosted_bounds, "scanned F");
                 SAFE_CALL(cudaDeviceSynchronize());
                 cout<<8<<endl;
-                unsigned int reduced_size;
+                unsigned int reduced_size = 0;
 
                 SAFE_CALL(cudaMemcpy(&reduced_size, &F_scanned.data()[edges_count - 1 ], sizeof(unsigned int), cudaMemcpyDeviceToHost));
 
-
+                cout<<"tut"<<endl;
+                cout<<reduced_size<<endl;
                 mgpu::mem_t<int> s_array(reduced_size, context);
                 cout<<9<<endl;
                 {
