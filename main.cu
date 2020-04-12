@@ -7,7 +7,7 @@
 //#include "./moderngpu/src/moderngpu/memory.hxx"
 //#include "./moderngpu/src/moderngpu/kernel_segreduce.hxx"
 //#include "./moderngpu/src/moderngpu/kernel_scan.hxx"
-
+//
 //#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 //#include "/usr/local/cuda-10.1/include/cuda_profiler_api.h"
 #include <omp.h>
@@ -306,6 +306,7 @@ int main(int argc, char **argv) {
             dst_ids = new unsigned int[edges_count];
             cout << "test_flag" << endl;
             if (strcmp(graph_type, "rmat") == 0) {
+                cout<<"RMAT";
                 R_MAT(src_ids, dst_ids, weights, vertices_count, edges_count, 45, 20, 20, 15, threads, true, true);
 
             } else {
@@ -334,6 +335,7 @@ int main(int argc, char **argv) {
         unsigned int *dest_labels = new unsigned int[edges_count];
         unsigned int *dev_labels;
         unsigned int *dev_dest_labels;
+        unsigned int *values;
         int  *F_mem;
 
         if (gather_flag) {
@@ -341,23 +343,24 @@ int main(int argc, char **argv) {
             SAFE_CALL((cudaMalloc((void **) &dev_labels, (size_t) (sizeof(unsigned int)) * (vertices_count))));
             SAFE_CALL((cudaMalloc((void **) &dev_dest_labels, (size_t) (sizeof(unsigned int)) * edges_count)));
             SAFE_CALL((cudaMalloc((void **) &F_mem, (size_t) (sizeof(int)) * edges_count)));
+            SAFE_CALL((cudaMalloc((void **) &values, (size_t) (sizeof(unsigned int)) * edges_count)));
 
             a.move_to_device(dest_labels, labels, dev_dest_labels, dev_labels);
             cout<<1<<endl;
             int iter = 0;
             mgpu::standard_context_t context;
 
-            std::vector<int> ptr; //Bounds as segments
-            for (int k = 0; k < vertices_count; k++) {
-                ptr.push_back(a.get_v_array()[k]);
-            }
-
-            cout<<2<<endl;
-            mgpu::mem_t<int> segs = mgpu::to_mem(ptr, context); //
+//            std::vector<int> ptr; //Bounds as segments
+//            for (int k = 0; k < vertices_count; k++) {
+//                ptr.push_back(a.get_v_array()[k]);
+//            }
+//
+//            cout<<2<<endl;
+//            mgpu::mem_t<int> segs = mgpu::to_mem(ptr, context); //
 
             mgpu::mem_t<int> s_ptr_array(vertices_count, context);
             mgpu::mem_t<int> out(vertices_count, context);
-            mgpu::mem_t<int> values(edges_count, context);
+            //mgpu::mem_t<int> values(edges_count, context);
             mgpu::mem_t<int> I_mem(edges_count, context);
             mgpu::mem_t<int> F_scanned(edges_count, context);
             {
@@ -406,7 +409,7 @@ int main(int argc, char **argv) {
 
 
 
-                mgpu::segmented_sort(dev_dest_labels, values.data(), edges_count, segs.data(), vertices_count,
+                mgpu::segmented_sort(dev_dest_labels, values, edges_count, a.get_dev_v_array(), vertices_count,
                                      mgpu::less_t<int>(), context);
 
 
