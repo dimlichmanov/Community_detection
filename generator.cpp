@@ -1,7 +1,7 @@
 #include "generator.h"
 #include "stdlib.h"
 void
-uniform_random(unsigned int *src_ids, unsigned  int *dst_ids, float *weights, unsigned int _vertices_count, long _edges_count, int _omp_threads,
+uniform_random(  int *src_ids,    int *dst_ids, float *weights,   int _vertices_count, long _edges_count, int _omp_threads,
                bool _directed, bool _weighted) {
     int n = (int) log2(_vertices_count);
 
@@ -37,7 +37,7 @@ uniform_random(unsigned int *src_ids, unsigned  int *dst_ids, float *weights, un
     }
 }
 
-void R_MAT(unsigned int *src_ids, unsigned int *dst_ids, float *weights, unsigned int _vertices_count, long _edges_count, int _a_prob, int _b_prob,
+void R_MAT(  int *src_ids,   int *dst_ids, float *weights,   int _vertices_count, long _edges_count, int _a_prob, int _b_prob,
            int _c_prob, int _d_prob, int _omp_threads, bool _directed, bool _weighted) {
     int n = (int) log2(_vertices_count);
 

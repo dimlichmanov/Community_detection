@@ -31,30 +31,30 @@ CSR_GRAPH::~CSR_GRAPH() {
     }
 }
 
-typedef std::pair<unsigned int, float> edge;
+typedef std::pair<   int, float> edge;
 
 
-CSR_GRAPH::CSR_GRAPH(unsigned int v, unsigned int e, unsigned int *_src_ids, unsigned int *_dst_ids, float *_weigths,
+CSR_GRAPH::CSR_GRAPH(   int v,    int e,    int *_src_ids,    int *_dst_ids, float *_weigths,
                      bool w) : vertices_count(v),
                                edges_count(e), weighted(w) {
 
 
     std::vector<std::vector<edge> > graph_info(vertices_count + 1);
 
-    //dest_labels = new unsigned int[edges_count];
+    //dest_labels = new    int[edges_count];
     weights = new float[edges_count];
 
-    e_array = new unsigned int[edges_count];
-    v_array = new unsigned int[vertices_count + 1];
+    e_array = new    int[edges_count];
+    v_array = new    int[vertices_count + 1];
 
     for (long long int i = 0; i < edges_count; i++) {
         int src_id = _src_ids[i];
         int dst_id = _dst_ids[i];
         float weight = _weigths[i];
-        graph_info[src_id].push_back(std::pair<unsigned int, float>(dst_id, weight));
+        graph_info[src_id].push_back(std::pair<   int, float>(dst_id, weight));
     }
 
-    unsigned int current_edge = 0;
+       int current_edge = 0;
     e_array[0] = 0;
     for (int cur_vertex = 0; cur_vertex < vertices_count; cur_vertex++) {
         int src_id = cur_vertex;
@@ -72,9 +72,9 @@ CSR_GRAPH::CSR_GRAPH(unsigned int v, unsigned int e, unsigned int *_src_ids, uns
 
 
 void
-form_label_array(int _omp_threads, unsigned int vertices_count, unsigned int edges_count, unsigned int *dest_labels,
-                 unsigned int *v_array, unsigned int *labels, unsigned int *e_array) {
-    dest_labels = new unsigned int[edges_count];
+form_label_array(int _omp_threads,    int vertices_count,    int edges_count,    int *dest_labels,
+                    int *v_array,    int *labels,    int *e_array) {
+    dest_labels = new    int[edges_count];
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)
@@ -86,7 +86,7 @@ form_label_array(int _omp_threads, unsigned int vertices_count, unsigned int edg
     }
 }
 
-void CSR_GRAPH::save_to_graphviz_file(string _file_name, unsigned int * labels) {
+void CSR_GRAPH::save_to_graphviz_file(string _file_name,    int * labels) {
     ofstream dot_output(_file_name.c_str());
     using namespace std;
 
@@ -151,10 +151,10 @@ void CSR_GRAPH::print_adj_format(void) {
 };
 
 
-void gather_thread_per_vertex(int _omp_threads, unsigned int edges_count, unsigned int vertices_count,
-                              unsigned int *dest_labels,
-                              const unsigned int *v_array, const unsigned int *e_array, const unsigned int *labels) {
-    dest_labels = new unsigned int[edges_count];
+void gather_thread_per_vertex(int _omp_threads,    int edges_count,    int vertices_count,
+                                 int *dest_labels,
+                              const    int *v_array, const    int *e_array, const    int *labels) {
+    dest_labels = new    int[edges_count];
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)
@@ -167,8 +167,8 @@ void gather_thread_per_vertex(int _omp_threads, unsigned int edges_count, unsign
 }
 
 
-void print_label_info(int _omp_threads, const int *labels, const int *dest_labels, unsigned int vertices_count,
-                      unsigned int edges_count) {
+void print_label_info(int _omp_threads, const int *labels, const int *dest_labels,    int vertices_count,
+                         int edges_count) {
 #pragma omp parallel num_threads(_omp_threads)
     {
 #pragma omp for schedule(static)
@@ -185,21 +185,21 @@ void print_label_info(int _omp_threads, const int *labels, const int *dest_label
 }
 
 
-void generate_labels(int _omp_threads, unsigned int vertices_count, unsigned int *labels) {
+void generate_labels(int _omp_threads,    int vertices_count,    int *labels) {
     unsigned int seed;
-    //labels = new unsigned int[vertices_count];
+    //labels = new    int[vertices_count];
 #pragma omp parallel num_threads(_omp_threads) private(seed)
     {
         seed = int(time(NULL)) * omp_get_thread_num();
 #pragma omp for schedule(static)
         for (int i = 0; i < vertices_count; i++) {
-            labels[i] = (unsigned int) rand_r(&seed) % (500);
+            labels[i] = ( int) rand_r(&seed) % (500);
         }
     }
 }
 
-int check(unsigned int edges_count, unsigned int *test_dest_labels, unsigned int *dest_labels) {
-    for (long unsigned int j = 0; j < edges_count; j++) {
+int check(   int edges_count,    int *test_dest_labels,    int *dest_labels) {
+    for (long    int j = 0; j < edges_count; j++) {
         if (test_dest_labels[j] != dest_labels[j]) {
             printf("ERROR IN %ld position", j);
             return -1;
@@ -207,8 +207,3 @@ int check(unsigned int edges_count, unsigned int *test_dest_labels, unsigned int
     }
     return 0;
 }
-
-int label_prop(unsigned int *dest_labels) {
-
-
-};
