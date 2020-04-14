@@ -1,13 +1,9 @@
-#include "./moderngpu/kernel_segsort.hxx"
-#include "./moderngpu/memory.hxx"
-#include "./moderngpu/kernel_scan.hxx"
-#include "./moderngpu/kernel_segreduce.hxx"
 
-//#include "./moderngpu/src/moderngpu/kernel_segsort.hxx"
-//#include "./moderngpu/src/moderngpu/memory.hxx"
-//#include "./moderngpu/src/moderngpu/kernel_segreduce.hxx"
-//#include "./moderngpu/src/moderngpu/kernel_scan.hxx"
-//
+#include "./moderngpu/src/moderngpu/kernel_segsort.hxx"
+#include "./moderngpu/src/moderngpu/memory.hxx"
+#include "./moderngpu/src/moderngpu/kernel_segreduce.hxx"
+#include "./moderngpu/src/moderngpu/kernel_scan.hxx"
+
 //#include "/usr/local/cuda-10.1/include/cuda_runtime.h"
 //#include "/usr/local/cuda-10.1/include/cuda_profiler_api.h"
 #include <omp.h>
@@ -29,6 +25,7 @@
 #include "cuda_runtime.h"
 #include "cuda_profiler_api.h"
 #include "map"
+
 
 
 #define SAFE_CALL(CallInstruction) { \
@@ -69,15 +66,6 @@ void debug_info(int *ptr, int size_n, string info) {
     }
     cout << endl;
 }
-
-//void debug_info(int *ptr, int size_n, string info) {
-//    cout << info << endl;
-//    for (int i = 0; i < size_n; i++) {
-//        std::cout << ptr[i] << " ";
-//    }
-//    cout << endl;
-//}
-
 
 void debug_info(bool *ptr, int size_n, string info) {
     cout << info << endl;
@@ -356,20 +344,8 @@ int main(int argc, char **argv) {
             cout << 1 << endl;
             int iter = 0;
             mgpu::standard_context_t context;
-
-//            std::vector<int> ptr; //Bounds as segments
-//            for (int k = 0; k < vertices_count; k++) {
-//                ptr.push_back(a.get_v_array()[k]);
-//            }
-//
-//            cout<<2<<endl;
-//            mgpu::mem_t<int> segs = mgpu::to_mem(ptr, context); //
-
-
             mgpu::mem_t<int> out(vertices_count, context);
-            //mgpu::mem_t<int> values(edges_count, context);
             mgpu::mem_t<int> I_mem(edges_count, context);
-            //mgpu::mem_t<int> F_scanned(edges_count, context);
             {
                 dim3 block(1024, 1);
                 dim3 grid(edges_count / block.x, 1); //only for test
@@ -404,16 +380,6 @@ int main(int argc, char **argv) {
                     }
                     delete[] test_dest_labels;
                 }
-
-
-//                printf("GATHER Bandwidth for 2^%d vertices and 2^%d edges is %f GB/s\n ", vertices_index,
-//                       vertices_index + (int) log2((double) density_degree),
-//                       sizeof(  int) * (2 * vertices_count + 2 * edges_count) / (time));
-
-
-
-
-
                 SAFE_CALL(cudaEventRecord(start));
                 mgpu::segmented_sort(dev_dest_labels, values, edges_count, a.get_dev_v_array(), vertices_count,
                                      mgpu::less_t<int>(), context);
@@ -422,7 +388,6 @@ int main(int argc, char **argv) {
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
                 time *= 1000000;
                 cout << "TEPS for segsort" << edges_count / time << endl;
-
 
                 SAFE_CALL(cudaEventRecord(start));
                 SAFE_CALL(
