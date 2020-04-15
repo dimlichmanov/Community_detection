@@ -366,8 +366,7 @@ int main(int argc, char **argv) {
                 SAFE_CALL(cudaEventRecord(stop));
                 SAFE_CALL(cudaEventSynchronize(stop));
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
-                time *= 1000000;
-                cout << "TEPS for gather" << edges_count / time << endl;
+                cout << "MTEPS for gather: " << edges_count / (time*1000) << endl;
                 //a.move_to_host(dest_labels, labels, dev_dest_labels, dev_labels);
                 if (check_flag) {
                     int *test_dest_labels = new int[edges_count];
@@ -386,8 +385,7 @@ int main(int argc, char **argv) {
                 SAFE_CALL(cudaEventRecord(stop));
                 SAFE_CALL(cudaEventSynchronize(stop));
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
-                time *= 1000000;
-                cout << "TEPS for segsort" << edges_count / time << endl;
+                cout << "MTEPS for segsort: " << edges_count / (time*1000) << endl;
 
                 SAFE_CALL(cudaEventRecord(start));
                 SAFE_CALL(
@@ -483,8 +481,7 @@ int main(int argc, char **argv) {
                 SAFE_CALL(cudaEventRecord(stop));
                 SAFE_CALL(cudaEventSynchronize(stop));
                 SAFE_CALL(cudaEventElapsedTime(&time, start, stop));
-                time *= 1000000;
-                cout << "TEPS for iteration" << edges_count / time << endl;
+                cout << "MTEPS for iteration: " << edges_count / (time*1000) << endl;
 
 //                cudaMemcpy(labels,dev_labels,vertices_count,cudaMemcpyDeviceToHost);
 //                std::cout<<"Iteration "<<iter<< " is over"<<endl;
